@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finanzas - Gestión de Clientes</title>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 28px; padding: 24px 20px 32px 20px; }
+        h1 { font-size: 1.8rem; margin-bottom: 8px; color: #1e293b; }
+        .sub { color: #475569; border-left: 4px solid #3b82f6; padding-left: 14px; margin-bottom: 24px; }
+        .clientes-section { background: #f8fafc; border-radius: 24px; padding: 20px; margin-bottom: 32px; border: 1px solid #e2e8f0; }
+        .clientes-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+        .selector-cliente { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        select, input { padding: 10px 14px; border-radius: 16px; border: 1px solid #cbd5e1; font-size: 0.9rem; background: white; }
+        button { background: #3b82f6; border: none; padding: 10px 20px; border-radius: 40px; font-weight: 600; color: white; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #2563eb; }
+        .btn-outline { background: white; color: #1e293b; border: 1px solid #cbd5e1; }
+        .btn-outline:hover { background: #f1f5f9; }
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-cycle { background: #8b5cf6; }
+        .btn-cycle:hover { background: #7c3aed; }
+        .btn-success { background: #10b981; }
+        .btn-drive { background: #4285F4; display: inline-block; }
+        .btn-drive:hover { background: #3367D6; }
+        .button-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        .form-card { background: #f8fafc; border-radius: 24px; padding: 20px; margin-bottom: 32px; border: 1px solid #e2e8f0; }
+        .form-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+        .field { flex: 1 1 160px; min-width: 130px; position: relative; }
+        .field label { display: block; font-size: 0.75rem; font-weight: 600; color: #334155; margin-bottom: 6px; }
+        .field input { width: 100%; }
+        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #cbd5e1; border-radius: 16px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
+        .autocomplete-item { padding: 10px 14px; cursor: pointer; }
+        .autocomplete-item:hover { background: #f1f5f9; }
+        .autocomplete-item.selected { background: #dbeafe; }
+        .table-wrapper { overflow-x: auto; border-radius: 20px; border: 1px solid #e2e8f0; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { background: #f1f5f9; padding: 12px; text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid #eef2ff; }
+        .saldo-cliente { background: #e6f0ff; padding: 16px 20px; border-radius: 28px; margin: 20px 0; text-align: right; font-weight: 700; font-size: 1.2rem; }
+        .abono-row { background-color: #d1fae5; }
+        .ciclos-section { background: #f8fafc; border-radius: 24px; padding: 15px; border: 1px solid #e2e8f0; margin-top: 10px; }
+        .ciclo-item { background: white; border-radius: 16px; padding: 10px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
+        .ciclo-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .ciclo-movimientos { display: none; margin-top: 15px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+        .ciclo-movimientos.visible { display: block; }
+        footer { font-size: 0.7rem; text-align: center; color: #62748c; margin-top: 24px; }
+        @media (max-width: 780px) { .form-grid { flex-direction: column; } th, td { font-size: 0.75rem; padding: 6px; } }
+    </style>
+
+    <!-- Declaración global previa para Google API -->
+    <script>
+        const CLIENT_ID = '500323901738-e1ajtft9I912cbknrimf7mmkn7rgpim2.apps.googleusercontent.com';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        let tokenClient;
+        let driveAutosyncEnabled = false;
+
+        function initGoogleAPI() {
+            gapi.load('client', async () => {
+                try {
+                    await gapi.client.init({
+                        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                    });
+                    initGIS();
+                } catch (e) {
+                    console.error('Error inicializando GAPI:', e);
+                }
+            });
+        }
+
+        function initGIS() {
+            if (typeof google !== 'undefined' && google.accounts) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: handleAuthResponse,
+                });
+                const btn = document.getElementById('btnConectarDrive');
+                if (btn) btn.style.display = 'inline-block';
+            } else {
+                setTimeout(initGIS, 500);
+            }
+        }
+
+        async function handleAuthResponse(resp) {
+            if (resp.error !== undefined) {
+                throw (resp);
+            }
+            driveAutosyncEnabled = true;
+            const btnDrive = document.getElementById('btnConectarDrive');
+            if (btnDrive) {
+                btnDrive.textContent = '☁️ Drive Conectado ✓';
+                btnDrive.style.background = '#10b981';
+            }
+            await descargarDesdeDrive();
+        }
+
+        function handleAuthClick() {
+            if (tokenClient) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                alert('Google Sign-In aún se está cargando. Intenta de nuevo en un segundo.');
+            }
+        }
+
+        async function subirADrive() {
+            if (!driveAutosyncEnabled) return;
+            try {
+                const datosACopia = {
+                    clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
+                    historialItems: JSON.parse(localStorage.getItem('historialItems') || '[]'),
+                    detalles: {}
+                };
+                const clientes = datosACopia.clientes;
+                clientes.forEach(c => {
+                    datosACopia.detalles[`movimientos_${c}`] = JSON.parse(localStorage.getItem(`movimientos_${c}`) || '[]');
+                    datosACopia.detalles[`ciclos_${c}`] = JSON.parse(localStorage.getItem(`ciclos_${c}`) || '[]');
+                });
+
+                const fileContent = JSON.stringify(datosACopia);
+                const fileMetadata = { name: 'tabla1_backup.json', mimeType: 'application/json' };
+                const file = new Blob([fileContent], { type: 'application/json' });
+
+                const response = await gapi.client.drive.files.list({
+                    q: "name='tabla1_backup.json' and trashed=false",
+                    fields: 'files(id, name)'
+                });
+                const files = response.result.files;
+
+                if (files && files.length > 0) {
+                    const fileId = files[0].id;
+                    await gapi.client.request({
+                        path: `/upload/drive/v3/files/${fileId}`,
+                        method: 'PATCH',
+                        params: { uploadType: 'media' },
+                        body: fileContent
+                    });
+                } else {
+                    const accessToken = gapi.auth.getToken().access_token;
+                    const form = new FormData();
+                    form.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
+                    form.append('file', file);
+
+                    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                        method: 'POST',
+                        headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
+                        body: form
+                    });
+                }
+                console.log('Respaldo en Drive actualizado correctamente.');
+            } catch (err) {
+                console.error('Error al sincronizar con Drive:', err);
+            }
+        }
+
+        async function descargarDesdeDrive() {
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: "name='tabla1_backup.json' and trashed=false",
+                    fields: 'files(id, name)'
+                });
+                const files = response.result.files;
+                if (files && files.length > 0) {
+                    const fileId = files[0].id;
+                    const fileResp = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    });
+                    const remoteData = fileResp.result;
+                    if (remoteData && remoteData.clientes) {
+                        localStorage.setItem('clientes', JSON.stringify(remoteData.clientes));
+                        localStorage.setItem('historialItems', JSON.stringify(remoteData.historialItems || []));
+                        if (remoteData.detalles) {
+                            for (let key in remoteData.detalles) {
+                                localStorage.setItem(key, JSON.stringify(remoteData.detalles[key]));
+                            }
+                        }
+                        location.reload();
+                    }
+                }
+            } catch (err) {
+                console.error('Error al descargar de Drive:', err);
+            }
+        }
+    </script>
+    <!-- Librerías de Google Drive con carga controlada -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer onload="initGoogleAPI()"></script>
+</head>
+<body>
+<div class="container">
+    <h1>📋 Gestión de Clientes</h1>
+    <div class="sub">Cargos suman | Abonos (escribe "abono" en el ítem) restan | Verde = Abono</div>
+
+    <div class="clientes-section">
+        <div class="clientes-header">
+            <div class="selector-cliente">
+                <select id="clienteSelect"><option value="">-- Seleccionar cliente --</option></select>
+                <button id="btnNuevoCliente" class="btn-outline">➕ Nuevo Cliente</button>
+                <button id="btnResetearTodo" class="btn-outline" style="background:#ef4444; color:white;">🗑️ Resetear todo</button>
+            </div>
+            <div class="button-group">
+                <button id="btnConectarDrive" class="btn-drive">☁️ Conectar Drive</button>
+                <button id="btnCerrarCiclo" class="btn-cycle" style="display: none;">🔁 Cerrar ciclo</button>
+                <button id="btnGenerarReporte" class="btn-success">📸 Generar Imagen Reporte</button>
+            </div>
+        </div>
+        <div id="saldoCliente" class="saldo-cliente">💰 Saldo: $0</div>
+    </div>
+
+    <div class="form-card" id="formMovimientoCard" style="display: none;">
+        <form id="movimientoForm">
+            <div class="form-grid">
+                <div class="field"><label>📅 Fecha y hora</label><input type="datetime-local" id="fechaHora" required></div>
+                <div class="field" id="itemField"><label>📦 Item</label><input type="text" id="item" placeholder="Escribe y presiona Enter" autocomplete="off" required><div id="autocompleteList" class="autocomplete-list"></div></div>
+                <div class="field"><label>🔢 Cantidad</label><input type="number" id="cantidad" step="any" value="1" required></div>
+                <div class="field"><label>💰 Valor unitario ($)</label><input type="text" id="valorUnitario" placeholder="Ej: 1500 (agrega 3 ceros)" autocomplete="off"></div>
+                <div class="field"><button type="submit" id="btnAgregarMovimiento" style="background:#10b981;">➕ Agregar</button></div>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-wrapper"><table id="tablaMovimientos"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th><th>Eliminar</th></tr></thead><tbody id="movimientosBody"><tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr></tbody></table></div>
+
+    <div class="ciclos-section"><h3>📚 Ciclos anteriores</h3><div id="ciclosList"><p style="color:#666;">No hay ciclos cerrados</p></div></div>
+    <footer>💡 Los datos se guardan en tu navegador y se sincronizan con tu Google Drive.</footer>
+</div>
+<div id="reporteImagen" style="position: fixed; top: -9999px; left: -9999px;"></div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnDrive = document.getElementById('btnConectarDrive');
+        if (btnDrive) btnDrive.onclick = handleAuthClick;
+
+        const clienteSelect = document.getElementById('clienteSelect');
+        const btnNuevoCliente = document.getElementById('btnNuevoCliente');
+        const btnResetearTodo = document.getElementById('btnResetearTodo');
+        const btnCerrarCiclo = document.getElementById('btnCerrarCiclo');
+        const btnGenerarReporte = document.getElementById('btnGenerarReporte');
+        const formMovimientoCard = document.getElementById('formMovimientoCard');
+        const saldoClienteDiv = document.getElementById('saldoCliente');
+        const movimientosBody = document.getElementById('movimientosBody');
+        const movimientoForm = document.getElementById('movimientoForm');
+        const fechaHoraInput = document.getElementById('fechaHora');
+        const itemInput = document.getElementById('item');
+        const cantidadInput = document.getElementById('cantidad');
+        const valorUnitarioInput = document.getElementById('valorUnitario');
+        const autocompleteList = document.getElementById('autocompleteList');
+        const ciclosList = document.getElementById('ciclosList');
+        const btnAgregarMovimiento = document.getElementById('btnAgregarMovimiento');
+
+        if (!clienteSelect || !movimientosBody || !saldoClienteDiv) {
+            console.error('Elementos críticos no encontrados');
+            alert('Error de carga de la aplicación. Recarga la página.');
+            return;
+        }
+
+        let clientes = [];
+        let clienteActual = null;
+        let movimientosActuales = [];
+        let ciclosCerrados = [];
+        let historialItems = [];
+
+        let currentSuggestions = [];
+        let currentSelectedIndex = -1;
+
+        function setFechaHoraActual() {
+            if (!fechaHoraInput) return;
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            fechaHoraInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        function formatoMoneda(valor) {
+            return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valor);
+        }
+
+        function formatearFecha(fechaISO) {
+            if (!fechaISO) return '';
+            let [fecha, hora] = fechaISO.split('T');
+            let [year, month, day] = fecha.split('-');
+            return `${day}/${month}/${year} ${hora?.substring(0,5) || '00:00'}`;
+        }
+
+        function formatearNumero(numero) {
+            return new Intl.NumberFormat('es-CO').format(numero);
+        }
+
+        function agregarTresCeros(valor) {
+            if (!valor || valor === '') return 0;
+            let limpio = valor.toString().replace(/\./g, '').replace(/,/g, '').trim();
+            let num = parseFloat(limpio);
+            if (isNaN(num)) return 0;
+            return num * 1000;
+        }
+
+        function parseMonedaInput(valor) {
+            if (!valor) return 0;
+            let limpio = valor.toString().replace(/\./g, '').replace(/,/g, '');
+            return parseFloat(limpio) || 0;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&';
+                if (m === '<') return '<';
+                if (m === '>') return '>';
+                return m;
+            });
+        }
+
+        function guardarTodo() {
+            try {
+                localStorage.setItem('clientes', JSON.stringify(clientes));
+                if (clienteActual) {
+                    localStorage.setItem(`movimientos_${clienteActual}`, JSON.stringify(movimientosActuales));
+                    localStorage.setItem(`ciclos_${clienteActual}`, JSON.stringify(ciclosCerrados));
+                }
+                localStorage.setItem('historialItems', JSON.stringify(historialItems.slice(0, 20)));
+                localStorage.setItem('clienteActual', clienteActual || '');
+                subirADrive();
+            } catch (e) {
+                console.error('Error guardando:', e);
+                alert('Error al guardar datos. Posiblemente el almacenamiento local esté lleno.');
+            }
+        }
+
+        function cargarTodo() {
+            try {
+                const clientesGuardados = localStorage.getItem('clientes');
+                clientes = clientesGuardados ? JSON.parse(clientesGuardados) : [];
+                const historial = localStorage.getItem('historialItems');
+                historialItems = historial ? JSON.parse(historial) : [];
+                const clienteActualGuardado = localStorage.getItem('clienteActual');
+                if (clienteActualGuardado && clientes.includes(clienteActualGuardado)) {
+                    clienteActual = clienteActualGuardado;
+                    const movs = localStorage.getItem(`movimientos_${clienteActual}`);
+                    movimientosActuales = movs ? JSON.parse(movs) : [];
+                    const ciclos = localStorage.getItem(`ciclos_${clienteActual}`);
+                    ciclosCerrados = ciclos ? JSON.parse(ciclos) : [];
+                } else {
+                    clienteActual = null;
+                    movimientosActuales = [];
+                    ciclosCerrados = [];
+                }
+                actualizarSelectorClientes();
+                if (clienteActual) {
+                    if (formMovimientoCard) formMovimientoCard.style.display = 'block';
+                    renderizarMovimientos();
+                    renderizarCiclos();
+                    actualizarSaldo();
+                } else {
+                    if (formMovimientoCard) formMovimientoCard.style.display = 'none';
+                    if (movimientosBody) movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
+                    if (saldoClienteDiv) saldoClienteDiv.innerHTML = '💰 Saldo: $0';
+                    if (ciclosList) ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
+                }
+            } catch (e) {
+                console.error('Error cargando:', e);
+                alert('Error al cargar datos. Se reiniciará la aplicación.');
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        function cargarMovimientosCliente() {
+            if (!clienteActual) return;
+            const movs = localStorage.getItem(`movimientos_${clienteActual}`);
+            movimientosActuales = movs ? JSON.parse(movs) : [];
+            const ciclos = localStorage.getItem(`ciclos_${clienteActual}`);
+            ciclosCerrados = ciclos ? JSON.parse(ciclos) : [];
+        }
+
+        function actualizarSelectorClientes() {
+            if (!clienteSelect) return;
+            const clienteAnterior = clienteSelect.value;
+            clienteSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>';
+            clientes.forEach(cliente => {
+                const option = document.createElement('option');
+                option.value = cliente;
+                option.textContent = cliente;
+                if (cliente === clienteAnterior) option.selected = true;
+                clienteSelect.appendChild(option);
+            });
+        }
+
+        function crearCliente() {
+            const nombre = prompt("Nombre del nuevo cliente:");
+            if (!nombre || nombre.trim() === '') return;
+            if (clientes.includes(nombre)) {
+                alert("Ya existe un cliente con ese nombre");
+                return;
+            }
+            clientes.push(nombre);
+            guardarTodo();
+            actualizarSelectorClientes();
+            alert(`Cliente "${nombre}" creado. Selecciónalo de la lista.`);
+        }
+
+        function calcularSaldo(movimientos) {
+            let saldo = 0;
+            const ordenados = [...movimientos].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
+            for (let m of ordenados) {
+                const valorTotal = m.cantidad * m.valorUnitario;
+                const esAbono = m.item && m.item.toLowerCase().includes('abono');
+                saldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
+            }
+            return saldo;
+        }
+
+        function actualizarSaldo() {
+            const saldo = calcularSaldo(movimientosActuales);
+            if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
+            if (btnCerrarCiclo) {
+                if (saldo === 0 && movimientosActuales.length > 0) btnCerrarCiclo.style.display = 'inline-block';
+                else btnCerrarCiclo.style.display = 'none';
+            }
+            return saldo;
+        }
+
+        function renderizarMovimientos() {
+            if (!movimientosBody) return;
+            if (!movimientosActuales.length) {
+                movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No hay movimientos. Agrega uno.</td></tr>';
+                actualizarSaldo();
+                return;
+            }
+            const ordenados = [...movimientosActuales].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
+            let saldo = 0;
+            let html = '';
+            for (let i = 0; i < ordenados.length; i++) {
+                const m = ordenados[i];
+                const valorTotal = m.cantidad * m.valorUnitario;
+                const esAbono = m.item && m.item.toLowerCase().includes('abono');
+                const nuevoSaldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
+                const rowClass = esAbono ? 'abono-row' : '';
+                html += `<tr class="${rowClass}">
+                    <td>${formatearFecha(m.fechaISO)}</td>
+                    <td>${escapeHtml(m.item)}</td>
+                    <td>${m.cantidad}</td>
+                    <td>${formatoMoneda(m.valorUnitario)}</td>
+                    <td>${formatoMoneda(valorTotal)}</td>
+                    <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
+                    <td><button class="btn-danger" onclick="eliminarMovimiento(${i})">🗑️ Eliminar</button></td>
+                </tr>`;
+                saldo = nuevoSaldo;
+            }
+            movimientosBody.innerHTML = html;
+            if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
+            if (btnCerrarCiclo) {
+                if (saldo === 0 && movimientosActuales.length > 0) btnCerrarCiclo.style.display = 'inline-block';
+                else btnCerrarCiclo.style.display = 'none';
+            }
+        }
+
+        window.eliminarMovimiento = function(indice) {
+            if (confirm("¿Eliminar este movimiento?")) {
+                movimientosActuales.splice(indice, 1);
+                guardarTodo();
+                renderizarMovimientos();
+            }
+        };
+
+        function agregarMovimiento() {
+            try {
+                if (!itemInput || !cantidadInput || !valorUnitarioInput || !fechaHoraInput) return;
+                let valorIngresado = valorUnitarioInput.value.trim();
+                let valorUnitario = agregarTresCeros(valorIngresado);
+                const itemTexto = itemInput.value.trim();
+                const cantidad = parseFloat(cantidadInput.value);
+                if (!fechaHoraInput.value) setFechaHoraActual();
+                if (!itemTexto) { alert("Escribe el nombre del item"); itemInput.focus(); return; }
+                if (isNaN(cantidad) || cantidad <= 0) { alert("La cantidad debe ser mayor a 0"); cantidadInput.focus(); return; }
+                if (valorUnitario <= 0) { alert("El valor unitario debe ser mayor a 0"); valorUnitarioInput.focus(); return; }
+                const data = {
+                    fechaISO: fechaHoraInput.value,
+                    item: itemTexto,
+                    cantidad: cantidad,
+                    valorUnitario: valorUnitario,
+                    esAbono: itemTexto.toLowerCase().includes('abono')
+                };
+                const itemLower = itemTexto.toLowerCase();
+                historialItems = historialItems.filter(i => i.toLowerCase() !== itemLower);
+                historialItems.unshift(itemTexto);
+                if (historialItems.length > 20) historialItems.pop();
+                movimientosActuales.push(data);
+                guardarTodo();
+                renderizarMovimientos();
+                itemInput.value = '';
+                cantidadInput.value = '1';
+                valorUnitarioInput.value = '';
+                setFechaHoraActual();
+                itemInput.focus();
+            } catch (error) {
+                console.error('Error en agregarMovimiento:', error);
+                alert('Error inesperado: ' + error.message);
+            }
+        }
+
+        function cerrarCiclo() {
+            const saldo = calcularSaldo(movimientosActuales);
+            if (saldo !== 0) { alert("⚠️ Solo puedes cerrar el ciclo cuando el saldo sea $0"); return; }
+            if (movimientosActuales.length === 0) { alert("No hay movimientos para archivar"); return; }
+            if (confirm("¿Cerrar ciclo? Los movimientos se archivarán y comenzarás un nuevo ciclo desde cero.")) {
+                const ciclo = {
+                    fechaCierre: new Date().toISOString(),
+                    saldoFinal: saldo,
+                    movimientos: [...movimientosActuales]
+                };
+                ciclosCerrados.unshift(ciclo);
+                movimientosActuales = [];
+                guardarTodo();
+                renderizarMovimientos();
+                renderizarCiclos();
+                alert("✅ Ciclo cerrado. Nuevo ciclo iniciado desde cero.");
+            }
+        }
+
+        function renderizarCiclos() {
+            if (!ciclosList) return;
+            if (!ciclosCerrados.length) {
+                ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
+                return;
+            }
+            let html = '';
+            for (let i = 0; i < ciclosCerrados.length; i++) {
+                const ciclo = ciclosCerrados[i];
+                const fechaCierre = new Date(ciclo.fechaCierre).toLocaleString();
+                const cicloNum = ciclosCerrados.length - i;
+                html += `
+                    <div class="ciclo-item">
+                        <div class="ciclo-header">
+                            <div>
+                                <strong>Ciclo #${cicloNum}</strong><br>
+                                <small>Cerrado: ${fechaCierre}</small><br>
+                                <small>Saldo final: ${formatoMoneda(ciclo.saldoFinal)}</small>
+                            </div>
+                            <button class="btn-outline" style="padding:5px 10px;" onclick="toggleCiclo(${i})">Ver movimientos</button>
+                        </div>
+                        <div id="cicloMovimientos${i}" class="ciclo-movimientos">
+                            ${generarTablaCiclo(ciclo.movimientos)}
+                        </div>
+                    </div>
+                `;
+            }
+            ciclosList.innerHTML = html;
+        }
+
+        function generarTablaCiclo(movimientosCiclo) {
+            let saldo = 0;
+            let html = '<div class="table-wrapper" style="margin-top:10px;"><table style="width:100%;"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th></tr></thead><tbody>';
+            const ordenados = [...movimientosCiclo].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
+            for (let m of ordenados) {
+                const valorTotal = m.cantidad * m.valorUnitario;
+                const esAbono = m.item && m.item.toLowerCase().includes('abono');
+                const nuevoSaldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
+                const rowClass = esAbono ? 'abono-row' : '';
+                html += `<tr class="${rowClass}">
+                    <td>${formatearFecha(m.fechaISO)}</td>
+                    <td>${escapeHtml(m.item)}</td>
+                    <td>${m.cantidad}</td>
+                    <td>${formatoMoneda(m.valorUnitario)}</td>
+                    <td>${formatoMoneda(valorTotal)}</td>
+                    <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
+                </tr>`;
+                saldo = nuevoSaldo;
+            }
+            html += '</tbody></table></div>';
+            return html;
+        }
+
+        window.toggleCiclo = function(indice) {
+            const div = document.getElementById(`cicloMovimientos${indice}`);
+            if (div) div.classList.toggle('visible');
+        };
+
+        async function generarReporte() {
+            if (!clienteActual) { alert("Selecciona un cliente primero"); return; }
+            const nombreCliente = clienteActual;
+            const fechaActual = new Date().toLocaleString();
+            const saldo = calcularSaldo(movimientosActuales);
+            const reporteDiv = document.getElementById('reporteImagen');
+            let tablaHtml = '';
+            if (movimientosActuales.length === 0) {
+                tablaHtml = '<p>No hay movimientos</p>';
+            } else {
+                tablaHtml = '<div class="table-wrapper"><table style="width:100%;"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th></tr></thead><tbody>';
+                let saldoTemp = 0;
+                const ordenados = [...movimientosActuales].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
+                for (let m of ordenados) {
+                    const valorTotal = m.cantidad * m.valorUnitario;
+                    const esAbono = m.item && m.item.toLowerCase().includes('abono');
+                    const nuevoSaldo = esAbono ? saldoTemp - valorTotal : saldoTemp + valorTotal;
+                    tablaHtml += `<tr>
+                        <td>${formatearFecha(m.fechaISO)}</td>
+                        <td>${escapeHtml(m.item)}</td>
+                        <td>${m.cantidad}</td>
+                        <td>${formatoMoneda(m.valorUnitario)}</td>
+                        <td>${formatoMoneda(valorTotal)}</td>
+                        <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
+                    </tr>`;
+                    saldoTemp = nuevoSaldo;
+                }
+                tablaHtml += '</tbody></table></div>';
+            }
+            reporteDiv.innerHTML = `
+                <div style="padding:20px; font-family:system-ui; min-width:500px; background:white;">
+                    <h2 style="margin:0 0 5px 0;">${escapeHtml(nombreCliente)}</h2>
+                    <p style="color:#666; margin:0 0 20px 0;">Generado: ${fechaActual}</p>
+                    <div style="margin-bottom:20px; background:#e6f0ff; padding:12px; border-radius:16px; text-align:right;">
+                        <strong>💰 Saldo: ${formatoMoneda(saldo)}</strong>
+                    </div>
+                    ${tablaHtml}
+                    <p style="margin-top:20px; font-size:11px; color:#999;">Documento generado automáticamente</p>
+                </div>
+            `;
+            try {
+                const canvas = await html2canvas(reporteDiv, { scale: 2, backgroundColor: '#ffffff' });
+                const link = document.createElement('a');
+                const fechaArchivo = new Date().toISOString().slice(0,19).replace(/:/g,'-');
+                link.download = `reporte_${nombreCliente.replace(/\s/g,'_')}_${fechaArchivo}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            } catch (error) {
+                console.error('Error en reporte:', error);
+                alert('Error al generar la imagen: ' + error.message);
+            } finally {
+                reporteDiv.innerHTML = '';
+            }
+        }
+
+        function mostrarSugerencias(busqueda) {
+            if (!autocompleteList) return;
+            if (!busqueda || busqueda.trim() === '') {
+                autocompleteList.style.display = 'none';
+                currentSuggestions = [];
+                return;
+            }
+            const busquedaLower = busqueda.toLowerCase();
+            currentSuggestions = historialItems.filter(item => item.toLowerCase().includes(busquedaLower)).slice(0,8);
+            if (currentSuggestions.length === 0) { autocompleteList.style.display = 'none'; return; }
+            autocompleteList.innerHTML = '';
+            currentSuggestions.forEach((item, idx) => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                div.textContent = item;
+                div.onclick = () => {
+                    if (itemInput) itemInput.value = item;
+                    autocompleteList.style.display = 'none';
+                    if (valorUnitarioInput) valorUnitarioInput.focus();
+                };
+                autocompleteList.appendChild(div);
+            });
+            autocompleteList.style.display = 'block';
+            currentSelectedIndex = -1;
+        }
+
+        function seleccionarSugerencia(index) {
+            if (index >= 0 && index < currentSuggestions.length && itemInput) {
+                itemInput.value = currentSuggestions[index];
+                const items = document.querySelectorAll('.autocomplete-item');
+                items.forEach((item, i) => { if (i === index) item.classList.add('selected'); else item.classList.remove('selected'); });
+            }
+        }
+
+        function navegarTeclado(e) {
+            if (!autocompleteList || autocompleteList.style.display !== 'block' || currentSuggestions.length === 0) return false;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                currentSelectedIndex = Math.min(currentSelectedIndex + 1, currentSuggestions.length - 1);
+                seleccionarSugerencia(currentSelectedIndex);
+                return true;
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                currentSelectedIndex = Math.max(currentSelectedIndex - 1, -1);
+                if (currentSelectedIndex === -1) document.querySelectorAll('.autocomplete-item').forEach(item => item.classList.remove('selected'));
+                else seleccionarSugerencia(currentSelectedIndex);
+                return true;
+            } else if (e.key === 'Enter' && currentSelectedIndex >= 0) {
+                e.preventDefault();
+            }
