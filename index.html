@@ -3,52 +3,283 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Permissions-Policy" content="unload=*">
     <title>Finanzas - Gestión de Clientes</title>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
-        * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
-        body { background: #f0f2f5; padding: 20px; }
-        .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 28px; padding: 24px 20px 32px 20px; }
-        h1 { font-size: 1.8rem; margin-bottom: 8px; color: #1e293b; }
-        .sub { color: #475569; border-left: 4px solid #3b82f6; padding-left: 14px; margin-bottom: 24px; }
-        .clientes-section { background: #f8fafc; border-radius: 24px; padding: 20px; margin-bottom: 32px; border: 1px solid #e2e8f0; }
-        .clientes-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
-        .selector-cliente { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-        select, input { padding: 10px 14px; border-radius: 16px; border: 1px solid #cbd5e1; font-size: 0.9rem; background: white; }
-        button { background: #3b82f6; border: none; padding: 10px 20px; border-radius: 40px; font-weight: 600; color: white; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #2563eb; }
-        .btn-outline { background: white; color: #1e293b; border: 1px solid #cbd5e1; }
-        .btn-outline:hover { background: #f1f5f9; }
-        .btn-danger { background: #ef4444; }
-        .btn-danger:hover { background: #dc2626; }
-        .btn-cycle { background: #8b5cf6; }
-        .btn-cycle:hover { background: #7c3aed; }
-        .btn-success { background: #10b981; }
-        .btn-drive { background: #4285F4; display: inline-block; }
-        .btn-drive:hover { background: #3367D6; }
-        .button-group { display: flex; gap: 10px; flex-wrap: wrap; }
-        .form-card { background: #f8fafc; border-radius: 24px; padding: 20px; margin-bottom: 32px; border: 1px solid #e2e8f0; }
-        .form-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
-        .field { flex: 1 1 160px; min-width: 130px; position: relative; }
-        .field label { display: block; font-size: 0.75rem; font-weight: 600; color: #334155; margin-bottom: 6px; }
-        .field input { width: 100%; }
-        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #cbd5e1; border-radius: 16px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
-        .autocomplete-item { padding: 10px 14px; cursor: pointer; }
-        .autocomplete-item:hover { background: #f1f5f9; }
-        .autocomplete-item.selected { background: #dbeafe; }
-        .table-wrapper { overflow-x: auto; border-radius: 20px; border: 1px solid #e2e8f0; margin-bottom: 30px; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        th { background: #f1f5f9; padding: 12px; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #eef2ff; }
-        .saldo-cliente { background: #e6f0ff; padding: 16px 20px; border-radius: 28px; margin: 20px 0; text-align: right; font-weight: 700; font-size: 1.2rem; }
-        .abono-row { background-color: #d1fae5; }
-        .ciclos-section { background: #f8fafc; border-radius: 24px; padding: 15px; border: 1px solid #e2e8f0; margin-top: 10px; }
-        .ciclo-item { background: white; border-radius: 16px; padding: 10px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
-        .ciclo-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .ciclo-movimientos { display: none; margin-top: 15px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
-        .ciclo-movimientos.visible { display: block; }
-        footer { font-size: 0.7rem; text-align: center; color: #62748c; margin-top: 24px; }
-        @media (max-width: 780px) { .form-grid { flex-direction: column; } th, td { font-size: 0.75rem; padding: 6px; } }
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 28px;
+            padding: 24px 20px 32px 20px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            color: #1e293b;
+        }
+
+        .sub {
+            color: #475569;
+            border-left: 4px solid #3b82f6;
+            padding-left: 14px;
+            margin-bottom: 24px;
+        }
+
+        .clientes-section {
+            background: #f8fafc;
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 32px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .clientes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .selector-cliente {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        select, input {
+            padding: 10px 14px;
+            border-radius: 16px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.9rem;
+            background: white;
+        }
+
+        button {
+            background: #3b82f6;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+            button:hover {
+                background: #2563eb;
+            }
+
+        .btn-outline {
+            background: white;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+
+            .btn-outline:hover {
+                background: #f1f5f9;
+            }
+
+        .btn-danger {
+            background: #ef4444;
+        }
+
+            .btn-danger:hover {
+                background: #dc2626;
+            }
+
+        .btn-cycle {
+            background: #8b5cf6;
+        }
+
+            .btn-cycle:hover {
+                background: #7c3aed;
+            }
+
+        .btn-success {
+            background: #10b981;
+        }
+
+        .btn-drive {
+            background: #4285F4;
+            display: inline-block;
+        }
+
+            .btn-drive:hover {
+                background: #3367D6;
+            }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .form-card {
+            background: #f8fafc;
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 32px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .form-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: flex-end;
+        }
+
+        .field {
+            flex: 1 1 160px;
+            min-width: 130px;
+            position: relative;
+        }
+
+            .field label {
+                display: block;
+                font-size: 0.75rem;
+                font-weight: 600;
+                color: #334155;
+                margin-bottom: 6px;
+            }
+
+            .field input {
+                width: 100%;
+            }
+
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .autocomplete-item {
+            padding: 10px 14px;
+            cursor: pointer;
+        }
+
+            .autocomplete-item:hover {
+                background: #f1f5f9;
+            }
+
+            .autocomplete-item.selected {
+                background: #dbeafe;
+            }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        th {
+            background: #f1f5f9;
+            padding: 12px;
+            text-align: left;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #eef2ff;
+        }
+
+        .saldo-cliente {
+            background: #e6f0ff;
+            padding: 16px 20px;
+            border-radius: 28px;
+            margin: 20px 0;
+            text-align: right;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .abono-row {
+            background-color: #d1fae5;
+        }
+
+        .ciclos-section {
+            background: #f8fafc;
+            border-radius: 24px;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            margin-top: 10px;
+        }
+
+        .ciclo-item {
+            background: white;
+            border-radius: 16px;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 10px;
+        }
+
+        .ciclo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .ciclo-movimientos {
+            display: none;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+            .ciclo-movimientos.visible {
+                display: block;
+            }
+
+        footer {
+            font-size: 0.7rem;
+            text-align: center;
+            color: #62748c;
+            margin-top: 24px;
+        }
+
+        @media (max-width: 780px) {
+            .form-grid {
+                flex-direction: column;
+            }
+
+            th, td {
+                font-size: 0.75rem;
+                padding: 6px;
+            }
+        }
     </style>
 
     <!-- Declaración global previa para Google API -->
@@ -100,7 +331,7 @@
 
         function handleAuthClick() {
             if (tokenClient) {
-                tokenClient.requestAccessToken({prompt: 'consent'});
+                tokenClient.requestAccessToken({ prompt: 'consent' });
             } else {
                 alert('Google Sign-In aún se está cargando. Intenta de nuevo en un segundo.');
             }
@@ -186,9 +417,9 @@
             }
         }
     </script>
-    <!-- Librerías de Google Drive con carga controlada -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js" async defer onload="initGoogleAPI()"></script>
+    <!-- Librerías de Google Drive con inicialización segura -->
+    <script async defer src="https://accounts.google.com/gsi/client"></script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};initGoogleAPI()"></script>
 </head>
 <body>
 <div class="container">
@@ -687,3 +918,68 @@
             } else if (e.key === 'Enter' && currentSelectedIndex >= 0) {
                 e.preventDefault();
             }
+        }
+
+        if (itemInput) {
+            itemInput.addEventListener('input', (e) => mostrarSugerencias(e.target.value));
+            itemInput.addEventListener('keydown', (e) => {
+                if (navegarTeclado(e)) return;
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (currentSelectedIndex >= 0 && currentSelectedIndex < currentSuggestions.length) {
+                        itemInput.value = currentSuggestions[currentSelectedIndex];
+                        if (autocompleteList) autocompleteList.style.display = 'none';
+                        if (valorUnitarioInput) valorUnitarioInput.focus();
+                    } else {
+                        if (autocompleteList) autocompleteList.style.display = 'none';
+                        if (valorUnitarioInput) valorUnitarioInput.focus();
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            if (autocompleteList && !itemInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+                autocompleteList.style.display = 'none';
+            }
+        });
+
+        if (btnNuevoCliente) btnNuevoCliente.onclick = crearCliente;
+        if (clienteSelect) clienteSelect.onchange = (e) => {
+            clienteActual = e.target.value || null;
+            if (clienteActual) {
+                if (formMovimientoCard) formMovimientoCard.style.display = 'block';
+                cargarMovimientosCliente();
+                renderizarMovimientos();
+                renderizarCiclos();
+                actualizarSaldo();
+            } else {
+                if (formMovimientoCard) formMovimientoCard.style.display = 'none';
+                if (movimientosBody) movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
+                if (saldoClienteDiv) saldoClienteDiv.innerHTML = '💰 Saldo: $0';
+                if (ciclosList) ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
+            }
+            localStorage.setItem('clienteActual', clienteActual || '');
+        };
+
+        if (btnResetearTodo) btnResetearTodo.onclick = () => {
+            if (confirm("⚠️ ¿Estás seguro de borrar TODOS los datos? Esto eliminará clientes y movimientos.")) {
+                localStorage.clear();
+                location.reload();
+            }
+        };
+
+        if (movimientoForm) movimientoForm.onsubmit = (e) => {
+            e.preventDefault();
+            agregarMovimiento();
+        };
+
+        if (btnCerrarCiclo) btnCerrarCiclo.onclick = cerrarCiclo;
+        if (btnGenerarReporte) btnGenerarReporte.onclick = generarReporte;
+
+        setFechaHoraActual();
+        cargarTodo();
+    });
+</script>
+</body>
+</html>
