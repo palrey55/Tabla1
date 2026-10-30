@@ -48,17 +48,11 @@
 
         .clientes-header {
             display: flex;
-            flex-direction: column;
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-
-        .toolbar-row {
-            display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 12px;
+            margin-bottom: 20px;
         }
 
         .selector-cliente {
@@ -78,8 +72,8 @@
 
         button {
             border: none;
-            padding: 12px 20px;
-            border-radius: 40px;
+            padding: 10px 18px;
+            border-radius: 16px;
             font-weight: 600;
             color: white;
             cursor: pointer;
@@ -95,6 +89,7 @@
             background: white;
             color: #1e293b;
             border: 1px solid #cbd5e1;
+            border-radius: 16px;
         }
         .btn-outline:hover {
             background: #f1f5f9;
@@ -102,22 +97,17 @@
 
         .btn-drive {
             background: #4285F4;
+            border-radius: 16px;
         }
 
         .btn-save {
             background: #f59e0b;
-            font-size: 1rem;
-            padding: 12px 24px;
-            width: 100%;
-            text-align: center;
+            border-radius: 16px;
         }
 
         .btn-danger {
             background: #ef4444;
-        }
-
-        .btn-success {
-            background: #10b981;
+            border-radius: 16px;
         }
 
         .button-group {
@@ -357,374 +347,4 @@
                 const files = response.result.files;
 
                 if (files && files.length > 0) {
-                    const fileId = files[0].id;
-                    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-                        method: 'PATCH',
-                        headers: {
-                            'Authorization': 'Bearer ' + accessToken,
-                            'Content-Type': 'application/json'
-                        },
-                        body: fileContent
-                    });
-                } else {
-                    const form = new FormData();
-                    form.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
-                    form.append('file', file);
-
-                    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                        method: 'POST',
-                        headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
-                        body: form
-                    });
-                }
-                mostrarEstado("✅ ¡Guardado con éxito! El archivo .json ha sido actualizado en la nube.", "#d1fae5", "#065f46");
-            } catch (err) {
-                console.error('Error al guardar en Drive:', err);
-                mostrarEstado("❌ Error al guardar en Drive. Revisa tu conexión.", "#fee2e2", "#991b1b");
-            }
-        }
-
-        async function descargarDesdeDrive() {
-            mostrarEstado("⏳ Descargando datos desde Google Drive...", "#e0f2fe", "#0369a1");
-            try {
-                const response = await gapi.client.drive.files.list({
-                    q: "name='tabla1_backup.json' and trashed=false",
-                    fields: 'files(id, name)'
-                });
-                const files = response.result.files;
-                if (files && files.length > 0) {
-                    const fileId = files[0].id;
-                    const fileResp = await gapi.client.drive.files.get({
-                        fileId: fileId,
-                        alt: 'media'
-                    });
-                    const remoteData = fileResp.result;
-                    if (remoteData && remoteData.clientes) {
-                        appData = remoteData;
-                        if (!appData.detalles) appData.detalles = {};
-                        if (!appData.historialItems) appData.historialItems = [];
-                        if (appData.clienteActual && !appData.clientes.includes(appData.clienteActual)) {
-                            appData.clienteActual = null;
-                        }
-                    }
-                } else {
-                    await guardarEnDrive();
-                }
-                actualizarInterfazCompleta();
-                mostrarEstado("✅ Datos cargados correctamente desde la nube.", "#d1fae5", "#065f46");
-            } catch (err) {
-                console.error('Error al descargar de Drive:', err);
-                mostrarEstado("❌ Error al descargar de Drive.", "#fee2e2", "#991b1b");
-            }
-        }
-    </script>
-    <script async defer src="https://accounts.google.com/gsi/client"></script>
-    <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};initGoogleAPI()"></script>
-</head>
-<body>
-<div class="container" id="reporteContenedor">
-    <h1>📋 Gestión de Clientes (Modo Nube)</h1>
-    <div class="sub">Cargos suman | Abonos (escribe "abono" en el ítem) restan | Verde = Abono</div>
-
-    <div id="statusBar" class="status-bar">Estado del sistema</div>
-
-    <div class="clientes-section">
-        <div class="clientes-header">
-            <!-- Fila principal de controles -->
-            <div class="toolbar-row">
-                <div class="selector-cliente">
-                    <select id="clienteSelect"><option value="">-- Seleccionar cliente --</option></select>
-                    <button id="btnNuevoCliente" class="btn-outline">➕ Nuevo Cliente</button>
-                </div>
-                <div class="button-group">
-                    <button id="btnConectarDrive" class="btn-drive">☁️ Conectar Drive</button>
-                    <button id="btnSincronizar" class="btn-outline">🔄 Descargar / Sincronizar</button>
-                </div>
-            </div>
-
-            <!-- Botón Grande y Visible de Guardado Manual -->
-            <div class="toolbar-row" style="border-top: 1px solid #e2e8f0; padding-top: 16px;">
-                <button id="btnGuardarDrive" class="btn-save">💾 GUARDAR EN DRIVE (Sobrescribir .json)</button>
-            </div>
-        </div>
-        <div id="saldoCliente" class="saldo-cliente">💰 Saldo: $0</div>
-    </div>
-
-    <div class="form-card" id="formMovimientoCard" style="display: none;">
-        <form id="movimientoForm">
-            <div class="form-grid">
-                <div class="field"><label>📅 Fecha y hora</label><input type="datetime-local" id="fechaHora" required></div>
-                <div class="field" id="itemField"><label>📦 Item</label><input type="text" id="item" placeholder="Escribe y presiona Enter" autocomplete="off" required><div id="autocompleteList" class="autocomplete-list"></div></div>
-                <div class="field"><label>🔢 Cantidad</label><input type="number" id="cantidad" step="any" value="1" required></div>
-                <div class="field"><label>💰 Valor unitario ($)</label><input type="text" id="valorUnitario" placeholder="Ej: 1500 (agrega 3 ceros)" autocomplete="off"></div>
-                <div class="field"><button type="submit" id="btnAgregarMovimiento" style="background:#10b981;">➕ Agregar</button></div>
-            </div>
-        </form>
-    </div>
-
-    <div class="table-wrapper"><table id="tablaMovimientos"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th><th>Eliminar</th></tr></thead><tbody id="movimientosBody"><tr><td colspan="7" style="text-align:center;">Conéctate a Drive para ver los registros</td></tr></tbody></table></div>
-
-    <footer>💡 Agrega tus registros con tranquilidad y presiona el botón grande de "GUARDAR EN DRIVE" para actualizar el archivo .json en tu nube.</footer>
-</div>
-
-<script>
-    let clienteSelect, btnNuevoCliente, btnGuardarDrive, btnSincronizar;
-    let formMovimientoCard, saldoClienteDiv, movimientosBody, movimientoForm;
-    let fechaHoraInput, itemInput, cantidadInput, valorUnitarioInput, autocompleteList;
-
-    let currentSuggestions = [];
-    let currentSelectedIndex = -1;
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const btnDrive = document.getElementById('btnConectarDrive');
-        if (btnDrive) btnDrive.onclick = handleAuthClick;
-
-        clienteSelect = document.getElementById('clienteSelect');
-        btnNuevoCliente = document.getElementById('btnNuevoCliente');
-        btnGuardarDrive = document.getElementById('btnGuardarDrive');
-        btnSincronizar = document.getElementById('btnSincronizar');
-        formMovimientoCard = document.getElementById('formMovimientoCard');
-        saldoClienteDiv = document.getElementById('saldoCliente');
-        movimientosBody = document.getElementById('movimientosBody');
-        movimientoForm = document.getElementById('movimientoForm');
-        fechaHoraInput = document.getElementById('fechaHora');
-        itemInput = document.getElementById('item');
-        cantidadInput = document.getElementById('cantidad');
-        valorUnitarioInput = document.getElementById('valorUnitario');
-        autocompleteList = document.getElementById('autocompleteList');
-
-        if (btnGuardarDrive) btnGuardarDrive.onclick = guardarEnDrive;
-        if (btnSincronizar) btnSincronizar.onclick = descargarDesdeDrive;
-        if (btnNuevoCliente) btnNuevoCliente.onclick = crearCliente;
-
-        if (clienteSelect) {
-            clienteSelect.onchange = (e) => {
-                appData.clienteActual = e.target.value;
-                actualizarInterfazCompleta();
-            };
-        }
-
-        if (movimientoForm) {
-            movimientoForm.onsubmit = (e) => {
-                e.preventDefault();
-                agregarMovimiento();
-            };
-        }
-
-        if (itemInput) {
-            itemInput.oninput = (e) => {
-                const val = e.target.value.toLowerCase();
-                if (!val) {
-                    if (autocompleteList) autocompleteList.style.display = 'none';
-                    return;
-                }
-                currentSuggestions = (appData.historialItems || []).filter(i => i.toLowerCase().includes(val));
-                if (currentSuggestions.length > 0 && autocompleteList) {
-                    let html = '';
-                    currentSuggestions.forEach((s, idx) => {
-                        html += `<div class="autocomplete-item ${idx === currentSelectedIndex ? 'selected' : ''}" onclick="seleccionarSugerencia('${escapeHtml(s)}')">${escapeHtml(s)}</div>`;
-                    });
-                    autocompleteList.innerHTML = html;
-                    autocompleteList.style.display = 'block';
-                } else if (autocompleteList) {
-                    autocompleteList.style.display = 'none';
-                }
-            };
-        }
-
-        setFechaHoraActual();
-    });
-
-    function actualizarInterfazCompleta() {
-        actualizarSelectorClientes();
-        const clienteActual = appData.clienteActual;
-        if (clienteActual && appData.clientes.includes(clienteActual)) {
-            if (formMovimientoCard) formMovimientoCard.style.display = 'block';
-            renderizarMovimientos();
-            actualizarSaldo();
-        } else {
-            appData.clienteActual = null;
-            if (formMovimientoCard) formMovimientoCard.style.display = 'none';
-            if (movimientosBody) movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
-            if (saldoClienteDiv) saldoClienteDiv.innerHTML = '💰 Saldo: $0';
-        }
-    }
-
-    function setFechaHoraActual() {
-        if (!fechaHoraInput) return;
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        fechaHoraInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
-    }
-
-    function formatoMoneda(valor) {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valor);
-    }
-
-    function formatearFecha(fechaISO) {
-        if (!fechaISO) return '';
-        let [fecha, hora] = fechaISO.split('T');
-        let [year, month, day] = fecha.split('-');
-        return `${day}/${month}/${year} ${hora?.substring(0,5) || '00:00'}`;
-    }
-
-    function agregarTresCeros(valor) {
-        if (!valor || valor === '') return 0;
-        let limpio = valor.toString().replace(/\./g, '').replace(/,/g, '').trim();
-        let num = parseFloat(limpio);
-        if (isNaN(num)) return 0;
-        return num * 1000;
-    }
-
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&';
-            if (m === '<') return '<';
-            if (m === '>') return '>';
-            return m;
-        });
-    }
-
-    function actualizarSelectorClientes() {
-        if (!clienteSelect) return;
-        const clienteAnterior = appData.clienteActual;
-        clienteSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>';
-        (appData.clientes || []).forEach(cliente => {
-            const option = document.createElement('option');
-            option.value = cliente;
-            option.textContent = cliente;
-            if (cliente === clienteAnterior) option.selected = true;
-            clienteSelect.appendChild(option);
-        });
-    }
-
-    function crearCliente() {
-        const nombre = prompt("Nombre del nuevo cliente:");
-        if (!nombre || nombre.trim() === '') return;
-        if (appData.clientes.includes(nombre)) {
-            alert("Ya existe un cliente con ese nombre");
-            return;
-        }
-        appData.clientes.push(nombre);
-        appData.clienteActual = nombre;
-        actualizarInterfazCompleta();
-        mostrarEstado("⚠️ Cliente creado. Haz clic en 'GUARDAR EN DRIVE' para guardarlo en la nube.", "#fff3cd", "#856404");
-    }
-
-    function calcularSaldo(movimientos) {
-        let saldo = 0;
-        const ordenados = [...movimientos].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
-        for (let m of ordenados) {
-            const valorTotal = m.cantidad * m.valorUnitario;
-            const esAbono = m.item && m.item.toLowerCase().includes('abono');
-            saldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
-        }
-        return saldo;
-    }
-
-    function actualizarSaldo() {
-        const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
-        const saldo = calcularSaldo(movimientosActuales);
-        if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
-        return saldo;
-    }
-
-    function renderizarMovimientos() {
-        if (!movimientosBody) return;
-        const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
-        if (!movimientosActuales.length) {
-            movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No hay movimientos. Agrega uno.</td></tr>';
-            actualizarSaldo();
-            return;
-        }
-        const ordenados = [...movimientosActuales].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
-        let saldo = 0;
-        let html = '';
-        for (let i = 0; i < ordenados.length; i++) {
-            const m = ordenados[i];
-            const valorTotal = m.cantidad * m.valorUnitario;
-            const esAbono = m.item && m.item.toLowerCase().includes('abono');
-            const nuevoSaldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
-            const rowClass = esAbono ? 'abono-row' : '';
-            html += `<tr class="${rowClass}">
-                <td>${formatearFecha(m.fechaISO)}</td>
-                <td>${escapeHtml(m.item)}</td>
-                <td>${m.cantidad}</td>
-                <td>${formatoMoneda(m.valorUnitario)}</td>
-                <td>${formatoMoneda(valorTotal)}</td>
-                <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
-                <td><button class="btn-danger" style="padding:6px 12px; font-size:0.75rem;" onclick="eliminarMovimiento(${i})">🗑️</button></td>
-            </tr>`;
-            saldo = nuevoSaldo;
-        }
-        movimientosBody.innerHTML = html;
-        if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
-    }
-
-    window.eliminarMovimiento = function(indice) {
-        if (confirm("¿Eliminar este movimiento?")) {
-            const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
-            movimientosActuales.splice(indice, 1);
-            renderizarMovimientos();
-            mostrarEstado("⚠️ Movimiento eliminado. Haz clic en 'GUARDAR EN DRIVE' para actualizar.", "#fff3cd", "#856404");
-        }
-    };
-
-    function agregarMovimiento() {
-        try {
-            if (!itemInput || !cantidadInput || !valorUnitarioInput || !fechaHoraInput) return;
-            let valorIngresado = valorUnitarioInput.value.trim();
-            let valorUnitario = agregarTresCeros(valorIngresado);
-            const itemTexto = itemInput.value.trim();
-            const cantidad = parseFloat(cantidadInput.value);
-            if (!fechaHoraInput.value) setFechaHoraActual();
-            if (!itemTexto) { alert("Escribe el nombre del item"); itemInput.focus(); return; }
-            if (isNaN(cantidad) || cantidad <= 0) { alert("La cantidad debe ser mayor a 0"); cantidadInput.focus(); return; }
-            if (valorUnitario <= 0) { alert("El valor unitario debe ser mayor a 0"); valorUnitarioInput.focus(); return; }
-            
-            const data = {
-                fechaISO: fechaHoraInput.value,
-                item: itemTexto,
-                cantidad: cantidad,
-                valorUnitario: valorUnitario,
-                esAbono: itemTexto.toLowerCase().includes('abono')
-            };
-
-            if (!appData.detalles[`movimientos_${appData.clienteActual}`]) {
-                appData.detalles[`movimientos_${appData.clienteActual}`] = [];
-            }
-
-            appData.historialItems = (appData.historialItems || []).filter(i => i.toLowerCase() !== itemTexto.toLowerCase());
-            appData.historialItems.unshift(itemTexto);
-            if (appData.historialItems.length > 20) appData.historialItems.pop();
-
-            appData.detalles[`movimientos_${appData.clienteActual}`].push(data);
-            
-            renderizarMovimientos();
-
-            itemInput.value = '';
-            cantidadInput.value = '1';
-            valorUnitarioInput.value = '';
-            setFechaHoraActual();
-            itemInput.focus();
-            mostrarEstado("⚠️ Registro agregado. Haz clic en 'GUARDAR EN DRIVE' para actualizar la nube.", "#fff3cd", "#856404");
-        } catch (error) {
-            console.error('Error en agregarMovimiento:', error);
-            alert('Error inesperado: ' + error.message);
-        }
-    }
-
-    window.seleccionarSugerencia = function(val) {
-        if (itemInput) itemInput.value = val;
-        if (autocompleteList) autocompleteList.style.display = 'none';
-        currentSelectedIndex = -1;
-        if (cantidadInput) cantidadInput.focus();
-    };
-</script>
-</body>
-</html>
+                    const fileId
