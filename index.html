@@ -311,22 +311,29 @@
                 });
                 const btn = document.getElementById('btnConectarDrive');
                 if (btn) btn.style.display = 'inline-block';
+
+                // Si ya se había conectado antes en esta sesión, intentamos restaurar estado silenciosamente
+                if (localStorage.getItem('driveConnected') === 'true') {
+                    tokenClient.requestAccessToken({ prompt: '' });
+                }
             } else {
                 setTimeout(initGIS, 500);
             }
         }
 
-        async function handleAuthResponse(resp) {
+        function handleAuthResponse(resp) {
             if (resp.error !== undefined) {
+                localStorage.removeItem('driveConnected');
                 throw (resp);
             }
             driveAutosyncEnabled = true;
+            localStorage.setItem('driveConnected', 'true');
             const btnDrive = document.getElementById('btnConectarDrive');
             if (btnDrive) {
                 btnDrive.textContent = '☁️ Drive Conectado ✓';
                 btnDrive.style.background = '#10b981';
             }
-            await descargarDesdeDrive();
+            descargarDesdeDriveSilent();
         }
 
         function handleAuthClick() {
@@ -422,6 +429,41 @@
                 }
             } catch (err) {
                 console.error('Error al descargar de Drive:', err);
+            }
+        }
+
+        async function descargarDesdeDriveSilent() {
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: "name='tabla1_backup.json' and trashed=false",
+                    fields: 'files(id, name)'
+                });
+                const files = response.result.files;
+                if (files && files.length > 0) {
+                    const fileId = files[0].id;
+                    const fileResp = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    });
+                    const remoteData = fileResp.result;
+                    if (remoteData && remoteData.clientes) {
+                        // Comparamos o actualizamos silenciosamente sin recargar bucles infinitos si es igual, o recargamos una vez si hay cambios
+                        const localClientes = localStorage.getItem('clientes');
+                        const remoteClientes = JSON.stringify(remoteData.clientes);
+                        if (localClientes !== remoteClientes) {
+                            localStorage.setItem('clientes', remoteClientes);
+                            localStorage.setItem('historialItems', JSON.stringify(remoteData.historialItems || []));
+                            if (remoteData.detalles) {
+                                for (let key in remoteData.detalles) {
+                                    localStorage.setItem(key, JSON.stringify(remoteData.detalles[key]));
+                                }
+                            }
+                            location.reload();
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error al descargar silenciosamente de Drive:', err);
             }
         }
     </script>
