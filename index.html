@@ -48,11 +48,17 @@
 
         .clientes-header {
             display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .toolbar-row {
+            display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 20px;
+            gap: 10px;
         }
 
         .selector-cliente {
@@ -73,43 +79,36 @@
         button {
             background: #3b82f6;
             border: none;
-            padding: 10px 20px;
+            padding: 10px 16px;
             border-radius: 40px;
             font-weight: 600;
             color: white;
             cursor: pointer;
             transition: 0.2s;
+            font-size: 0.85rem;
         }
 
-            button:hover {
-                background: #2563eb;
-            }
+        button:hover {
+            opacity: 0.9;
+        }
 
         .btn-outline {
             background: white;
             color: #1e293b;
             border: 1px solid #cbd5e1;
         }
-
-            .btn-outline:hover {
-                background: #f1f5f9;
-            }
+        .btn-outline:hover {
+            background: #f1f5f9;
+        }
 
         .btn-danger {
             background: #ef4444;
+            color: white;
         }
-
-            .btn-danger:hover {
-                background: #dc2626;
-            }
 
         .btn-cycle {
             background: #8b5cf6;
         }
-
-            .btn-cycle:hover {
-                background: #7c3aed;
-            }
 
         .btn-success {
             background: #10b981;
@@ -117,25 +116,16 @@
 
         .btn-drive {
             background: #4285F4;
-            display: inline-block;
         }
-
-            .btn-drive:hover {
-                background: #3367D6;
-            }
 
         .btn-save {
             background: #f59e0b;
         }
-            .btn-save:hover {
-                background: #d97706;
-            }
 
         .button-group {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
-            align-items: center;
         }
 
         .form-card {
@@ -159,17 +149,17 @@
             position: relative;
         }
 
-            .field label {
-                display: block;
-                font-size: 0.75rem;
-                font-weight: 600;
-                color: #334155;
-                margin-bottom: 6px;
-            }
+        .field label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 6px;
+        }
 
-            .field input {
-                width: 100%;
-            }
+        .field input {
+            width: 100%;
+        }
 
         .autocomplete-list {
             position: absolute;
@@ -189,14 +179,12 @@
             padding: 10px 14px;
             cursor: pointer;
         }
-
-            .autocomplete-item:hover {
-                background: #f1f5f9;
-            }
-
-            .autocomplete-item.selected {
-                background: #dbeafe;
-            }
+        .autocomplete-item:hover {
+            background: #f1f5f9;
+        }
+        .autocomplete-item.selected {
+            background: #dbeafe;
+        }
 
         .table-wrapper {
             overflow-x: auto;
@@ -226,7 +214,7 @@
             background: #e6f0ff;
             padding: 16px 20px;
             border-radius: 28px;
-            margin: 20px 0;
+            margin: 15px 0 0 0;
             text-align: right;
             font-weight: 700;
             font-size: 1.2rem;
@@ -266,15 +254,14 @@
             padding-top: 10px;
             border-top: 1px solid #e2e8f0;
         }
-
-            .ciclo-movimientos.visible {
-                display: block;
-            }
+        .ciclo-movimientos.visible {
+            display: block;
+        }
 
         .status-bar {
             background: #fff3cd;
             color: #856404;
-            padding: 8px 16px;
+            padding: 10px 16px;
             border-radius: 12px;
             margin-bottom: 15px;
             font-size: 0.85rem;
@@ -294,7 +281,6 @@
             .form-grid {
                 flex-direction: column;
             }
-
             th, td {
                 font-size: 0.75rem;
                 padding: 6px;
@@ -302,7 +288,6 @@
         }
     </style>
 
-    <!-- Declaración global previa para Google API -->
     <script>
         const CLIENT_ID = '500323901738-e1ajtft9l912cbknrimf7mmkn7rgpim2.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
@@ -481,17 +466,28 @@
 
     <div class="clientes-section">
         <div class="clientes-header">
-            <div class="selector-cliente">
-                <select id="clienteSelect"><option value="">-- Seleccionar cliente --</option></select>
-                <button id="btnNuevoCliente" class="btn-outline">➕ Nuevo Cliente</button>
-                <button id="btnResetearTodo" class="btn-outline" style="background:#ef4444; color:white;">🗑️ Resetear nube</button>
+            <!-- Fila 1: Selección de cliente y gestión general -->
+            <div class="toolbar-row">
+                <div class="selector-cliente">
+                    <select id="clienteSelect"><option value="">-- Seleccionar cliente --</option></select>
+                    <button id="btnNuevoCliente" class="btn-outline">➕ Nuevo</button>
+                    <button id="btnResetearTodo" class="btn-danger">🗑️ Vaciar</button>
+                </div>
+                <div class="button-group">
+                    <button id="btnCerrarCiclo" class="btn-cycle" style="display: none;">🔁 Cerrar ciclo</button>
+                    <button id="btnGenerarReporte" class="btn-success">📸 Reporte</button>
+                </div>
             </div>
-            <div class="button-group">
-                <button id="btnConectarDrive" class="btn-drive">☁️ Conectar Drive</button>
-                <button id="btnGuardarDrive" class="btn-save">💾 Guardar en Drive</button>
-                <button id="btnSincronizar" class="btn-outline">🔄 Sincronizar / Descargar</button>
-                <button id="btnCerrarCiclo" class="btn-cycle" style="display: none;">🔁 Cerrar ciclo</button>
-                <button id="btnGenerarReporte" class="btn-success">📸 Generar Imagen</button>
+
+            <!-- Fila 2: Botones de conexión y sincronización con Drive -->
+            <div class="toolbar-row" style="border-top: 1px solid #e2e8f0; padding-top: 14px;">
+                <div class="button-group">
+                    <button id="btnConectarDrive" class="btn-drive">☁️ Conectar Drive</button>
+                    <button id="btnSincronizar" class="btn-outline">🔄 Sincronizar</button>
+                </div>
+                <div class="button-group">
+                    <button id="btnGuardarDrive" class="btn-save">💾 Guardar en Drive</button>
+                </div>
             </div>
         </div>
         <div id="saldoCliente" class="saldo-cliente">💰 Saldo: $0</div>
@@ -745,7 +741,7 @@
                 <td>${formatoMoneda(m.valorUnitario)}</td>
                 <td>${formatoMoneda(valorTotal)}</td>
                 <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
-                <td><button class="btn-danger" onclick="eliminarMovimiento(${i})">🗑️ Eliminar</button></td>
+                <td><button class="btn-danger" onclick="eliminarMovimiento(${i})">🗑️</button></td>
             </tr>`;
             saldo = nuevoSaldo;
         }
