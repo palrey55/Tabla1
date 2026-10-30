@@ -58,12 +58,12 @@
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 12px;
         }
 
         .selector-cliente {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             align-items: center;
             flex-wrap: wrap;
         }
@@ -77,15 +77,14 @@
         }
 
         button {
-            background: #3b82f6;
             border: none;
-            padding: 10px 16px;
+            padding: 12px 20px;
             border-radius: 40px;
             font-weight: 600;
             color: white;
             cursor: pointer;
             transition: 0.2s;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
         }
 
         button:hover {
@@ -101,30 +100,27 @@
             background: #f1f5f9;
         }
 
-        .btn-danger {
-            background: #ef4444;
-            color: white;
-        }
-
-        .btn-cycle {
-            background: #8b5cf6;
-        }
-
-        .btn-success {
-            background: #10b981;
-        }
-
         .btn-drive {
             background: #4285F4;
         }
 
         .btn-save {
             background: #f59e0b;
+            font-size: 1rem;
+            padding: 12px 24px;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+        }
+
+        .btn-success {
+            background: #10b981;
         }
 
         .button-group {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             flex-wrap: wrap;
         }
 
@@ -224,47 +220,13 @@
             background-color: #d1fae5;
         }
 
-        .ciclos-section {
-            background: #f8fafc;
-            border-radius: 24px;
-            padding: 15px;
-            border: 1px solid #e2e8f0;
-            margin-top: 10px;
-        }
-
-        .ciclo-item {
-            background: white;
-            border-radius: 16px;
-            padding: 10px;
-            border: 1px solid #e2e8f0;
-            margin-bottom: 10px;
-        }
-
-        .ciclo-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .ciclo-movimientos {
-            display: none;
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #e2e8f0;
-        }
-        .ciclo-movimientos.visible {
-            display: block;
-        }
-
         .status-bar {
             background: #fff3cd;
             color: #856404;
-            padding: 10px 16px;
-            border-radius: 12px;
+            padding: 12px 16px;
+            border-radius: 16px;
             margin-bottom: 15px;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             display: none;
             text-align: center;
             font-weight: 600;
@@ -368,12 +330,12 @@
             }
         }
 
-        async function subirADriveManual() {
+        async function guardarEnDrive() {
             if (!driveAutosyncEnabled) {
                 alert("Primero debes conectar con Google Drive.");
                 return;
             }
-            mostrarEstado("⏳ Guardando cambios en Google Drive...", "#e0f2fe", "#0369a1");
+            mostrarEstado("⏳ Guardando y sobrescribiendo en Google Drive...", "#e0f2fe", "#0369a1");
             try {
                 const fileContent = JSON.stringify(appData);
                 const fileMetadata = { name: 'tabla1_backup.json', mimeType: 'application/json' };
@@ -413,7 +375,7 @@
                         body: form
                     });
                 }
-                mostrarEstado("✅ ¡Guardado y respaldado en Google Drive con éxito!", "#d1fae5", "#065f46");
+                mostrarEstado("✅ ¡Guardado con éxito! El archivo .json ha sido actualizado.", "#d1fae5", "#065f46");
             } catch (err) {
                 console.error('Error al guardar en Drive:', err);
                 mostrarEstado("❌ Error al guardar en Drive. Revisa tu conexión.", "#fee2e2", "#991b1b");
@@ -421,7 +383,7 @@
         }
 
         async function descargarDesdeDrive() {
-            mostrarEstado("⏳ Sincronizando datos desde Google Drive...", "#e0f2fe", "#0369a1");
+            mostrarEstado("⏳ Descargando datos desde Google Drive...", "#e0f2fe", "#0369a1");
             try {
                 const response = await gapi.client.drive.files.list({
                     q: "name='tabla1_backup.json' and trashed=false",
@@ -444,10 +406,10 @@
                         }
                     }
                 } else {
-                    await subirADriveManual();
+                    await guardarEnDrive();
                 }
                 actualizarInterfazCompleta();
-                mostrarEstado("✅ Datos sincronizados correctamente desde la nube.", "#d1fae5", "#065f46");
+                mostrarEstado("✅ Datos cargados correctamente desde la nube.", "#d1fae5", "#065f46");
             } catch (err) {
                 console.error('Error al descargar de Drive:', err);
                 mostrarEstado("❌ Error al descargar de Drive.", "#fee2e2", "#991b1b");
@@ -466,28 +428,21 @@
 
     <div class="clientes-section">
         <div class="clientes-header">
-            <!-- Fila 1: Selección de cliente y gestión general -->
+            <!-- Fila principal de controles y guardado -->
             <div class="toolbar-row">
                 <div class="selector-cliente">
                     <select id="clienteSelect"><option value="">-- Seleccionar cliente --</option></select>
-                    <button id="btnNuevoCliente" class="btn-outline">➕ Nuevo</button>
-                    <button id="btnResetearTodo" class="btn-danger">🗑️ Vaciar</button>
+                    <button id="btnNuevoCliente" class="btn-outline">➕ Nuevo Cliente</button>
                 </div>
                 <div class="button-group">
-                    <button id="btnCerrarCiclo" class="btn-cycle" style="display: none;">🔁 Cerrar ciclo</button>
-                    <button id="btnGenerarReporte" class="btn-success">📸 Reporte</button>
+                    <button id="btnConectarDrive" class="btn-drive">☁️ Conectar Drive</button>
+                    <button id="btnSincronizar" class="btn-outline">🔄 Descargar / Sincronizar</button>
                 </div>
             </div>
 
-            <!-- Fila 2: Botones de conexión y sincronización con Drive -->
-            <div class="toolbar-row" style="border-top: 1px solid #e2e8f0; padding-top: 14px;">
-                <div class="button-group">
-                    <button id="btnConectarDrive" class="btn-drive">☁️ Conectar Drive</button>
-                    <button id="btnSincronizar" class="btn-outline">🔄 Sincronizar</button>
-                </div>
-                <div class="button-group">
-                    <button id="btnGuardarDrive" class="btn-save">💾 Guardar en Drive</button>
-                </div>
+            <!-- Fila destacada con el botón grande de Guardar -->
+            <div class="toolbar-row" style="border-top: 1px solid #e2e8f0; padding-top: 16px; justify-content: center;">
+                <button id="btnGuardarDrive" class="btn-save">💾 GUARDAR EN DRIVE (Sobrescribir .json)</button>
             </div>
         </div>
         <div id="saldoCliente" class="saldo-cliente">💰 Saldo: $0</div>
@@ -507,14 +462,13 @@
 
     <div class="table-wrapper"><table id="tablaMovimientos"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th><th>Eliminar</th></tr></thead><tbody id="movimientosBody"><tr><td colspan="7" style="text-align:center;">Conéctate a Drive para ver los registros</td></tr></tbody></table></div>
 
-    <div class="ciclos-section"><h3>📚 Ciclos anteriores</h3><div id="ciclosList"><p style="color:#666;">No hay ciclos cerrados</p></div></div>
-    <footer>💡 Agrega tus registros con tranquilidad y presiona "Guardar en Drive" cuando termines.</footer>
+    <footer>💡 Agrega tus registros con tranquilidad y presiona el botón grande "Guardar en Drive" para actualizar el archivo .json en tu nube.</footer>
 </div>
 
 <script>
-    let clienteSelect, btnNuevoCliente, btnResetearTodo, btnCerrarCiclo, btnGenerarReporte, btnGuardarDrive, btnSincronizar;
+    let clienteSelect, btnNuevoCliente, btnGuardarDrive, btnSincronizar;
     let formMovimientoCard, saldoClienteDiv, movimientosBody, movimientoForm;
-    let fechaHoraInput, itemInput, cantidadInput, valorUnitarioInput, autocompleteList, ciclosList;
+    let fechaHoraInput, itemInput, cantidadInput, valorUnitarioInput, autocompleteList;
 
     let currentSuggestions = [];
     let currentSelectedIndex = -1;
@@ -525,11 +479,8 @@
 
         clienteSelect = document.getElementById('clienteSelect');
         btnNuevoCliente = document.getElementById('btnNuevoCliente');
-        btnResetearTodo = document.getElementById('btnResetearTodo');
         btnGuardarDrive = document.getElementById('btnGuardarDrive');
         btnSincronizar = document.getElementById('btnSincronizar');
-        btnCerrarCiclo = document.getElementById('btnCerrarCiclo');
-        btnGenerarReporte = document.getElementById('btnGenerarReporte');
         formMovimientoCard = document.getElementById('formMovimientoCard');
         saldoClienteDiv = document.getElementById('saldoCliente');
         movimientosBody = document.getElementById('movimientosBody');
@@ -539,40 +490,10 @@
         cantidadInput = document.getElementById('cantidad');
         valorUnitarioInput = document.getElementById('valorUnitario');
         autocompleteList = document.getElementById('autocompleteList');
-        ciclosList = document.getElementById('ciclosList');
 
-        if (btnGuardarDrive) btnGuardarDrive.onclick = subirADriveManual;
+        if (btnGuardarDrive) btnGuardarDrive.onclick = guardarEnDrive;
         if (btnSincronizar) btnSincronizar.onclick = descargarDesdeDrive;
-
         if (btnNuevoCliente) btnNuevoCliente.onclick = crearCliente;
-        if (btnResetearTodo) btnResetearTodo.onclick = () => {
-            if (confirm("⚠️ ¿Estás seguro de vaciar todo el archivo en la nube?")) {
-                appData = { clientes: [], clienteActual: null, historialItems: [], detalles: {} };
-                subirADriveManual();
-                actualizarInterfazCompleta();
-            }
-        };
-        if (btnCerrarCiclo) btnCerrarCiclo.onclick = cerrarCiclo;
-        
-        if (btnGenerarReporte) {
-            btnGenerarReporte.onclick = () => {
-                const elemento = document.getElementById('reporteContenedor');
-                const formCard = document.getElementById('formMovimientoCard');
-                if (formCard) formCard.style.display = 'none';
-                
-                html2canvas(elemento, { scale: 2 }).then(canvas => {
-                    if (formCard && appData.clienteActual) formCard.style.display = 'block';
-                    
-                    const enlace = document.createElement('a');
-                    enlace.download = `Reporte_${appData.clienteActual || 'Finanzas'}.png`;
-                    enlace.href = canvas.toDataURL('image/png');
-                    enlace.click();
-                }).catch(err => {
-                    console.error('Error generando imagen:', err);
-                    alert('No se pudo generar la imagen del reporte.');
-                });
-            };
-        }
 
         if (clienteSelect) {
             clienteSelect.onchange = (e) => {
@@ -618,14 +539,12 @@
         if (clienteActual && appData.clientes.includes(clienteActual)) {
             if (formMovimientoCard) formMovimientoCard.style.display = 'block';
             renderizarMovimientos();
-            renderizarCiclos();
             actualizarSaldo();
         } else {
             appData.clienteActual = null;
             if (formMovimientoCard) formMovimientoCard.style.display = 'none';
             if (movimientosBody) movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
             if (saldoClienteDiv) saldoClienteDiv.innerHTML = '💰 Saldo: $0';
-            if (ciclosList) ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
         }
     }
 
@@ -692,7 +611,7 @@
         appData.clientes.push(nombre);
         appData.clienteActual = nombre;
         actualizarInterfazCompleta();
-        mostrarEstado("⚠️ Cliente creado localmente. No olvides hacer clic en 'Guardar en Drive'.", "#fff3cd", "#856404");
+        mostrarEstado("⚠️ Cliente creado. Haz clic en 'GUARDAR EN DRIVE' para guardarlo.", "#fff3cd", "#856404");
     }
 
     function calcularSaldo(movimientos) {
@@ -710,10 +629,6 @@
         const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
         const saldo = calcularSaldo(movimientosActuales);
         if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
-        if (btnCerrarCiclo) {
-            if (saldo === 0 && movimientosActuales.length > 0) btnCerrarCiclo.style.display = 'inline-block';
-            else btnCerrarCiclo.style.display = 'none';
-        }
         return saldo;
     }
 
@@ -741,16 +656,12 @@
                 <td>${formatoMoneda(m.valorUnitario)}</td>
                 <td>${formatoMoneda(valorTotal)}</td>
                 <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
-                <td><button class="btn-danger" onclick="eliminarMovimiento(${i})">🗑️</button></td>
+                <td><button class="btn-danger" style="padding:6px 12px; font-size:0.75rem;" onclick="eliminarMovimiento(${i})">🗑️</button></td>
             </tr>`;
             saldo = nuevoSaldo;
         }
         movimientosBody.innerHTML = html;
         if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
-        if (btnCerrarCiclo) {
-            if (saldo === 0 && movimientosActuales.length > 0) btnCerrarCiclo.style.display = 'inline-block';
-            else btnCerrarCiclo.style.display = 'none';
-        }
     }
 
     window.eliminarMovimiento = function(indice) {
@@ -758,7 +669,7 @@
             const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
             movimientosActuales.splice(indice, 1);
             renderizarMovimientos();
-            mostrarEstado("⚠️ Movimiento eliminado localmente. Presiona 'Guardar en Drive'.", "#fff3cd", "#856404");
+            mostrarEstado("⚠️ Movimiento eliminado. Haz clic en 'GUARDAR EN DRIVE' para actualizar.", "#fff3cd", "#856404");
         }
     };
 
@@ -799,97 +710,12 @@
             valorUnitarioInput.value = '';
             setFechaHoraActual();
             itemInput.focus();
-            mostrarEstado("⚠️ Registro agregado. Recuerda hacer clic en 'Guardar en Drive'.", "#fff3cd", "#856404");
+            mostrarEstado("⚠️ Registro agregado. Haz clic en 'GUARDAR EN DRIVE' para actualizar la nube.", "#fff3cd", "#856404");
         } catch (error) {
             console.error('Error en agregarMovimiento:', error);
             alert('Error inesperado: ' + error.message);
         }
     }
-
-    function cerrarCiclo() {
-        const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
-        const saldo = calcularSaldo(movimientosActuales);
-        if (saldo !== 0) { alert("⚠️ Solo puedes cerrar el ciclo cuando el saldo sea $0"); return; }
-        if (movimientosActuales.length === 0) { alert("No hay movimientos para archivar"); return; }
-        
-        if (confirm("¿Cerrar ciclo?")) {
-            const ciclo = {
-                fechaCierre: new Date().toISOString(),
-                saldoFinal: saldo,
-                movimientos: [...movimientosActuales]
-            };
-
-            if (!appData.detalles[`ciclos_${appData.clienteActual}`]) {
-                appData.detalles[`ciclos_${appData.clienteActual}`] = [];
-            }
-
-            appData.detalles[`ciclos_${appData.clienteActual}`].unshift(ciclo);
-            appData.detalles[`movimientos_${appData.clienteActual}`] = [];
-            
-            renderizarMovimientos();
-            renderizarCiclos();
-            mostrarEstado("⚠️ Ciclo cerrado localmente. Presiona 'Guardar en Drive'.", "#fff3cd", "#856404");
-        }
-    }
-
-    function renderizarCiclos() {
-        if (!ciclosList) return;
-        const ciclosCerrados = appData.detalles[`ciclos_${appData.clienteActual}`] || [];
-        if (!ciclosCerrados.length) {
-            ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
-            return;
-        }
-        let html = '';
-        for (let i = 0; i < ciclosCerrados.length; i++) {
-            const ciclo = ciclosCerrados[i];
-            const fechaCierre = new Date(ciclo.fechaCierre).toLocaleString();
-            const cicloNum = ciclosCerrados.length - i;
-            html += `
-                <div class="ciclo-item">
-                    <div class="ciclo-header">
-                        <div>
-                            <strong>Ciclo #${cicloNum}</strong><br>
-                            <small>Cerrado: ${fechaCierre}</small><br>
-                            <small>Saldo final: ${formatoMoneda(ciclo.saldoFinal)}</small>
-                        </div>
-                        <button class="btn-outline" style="padding:5px 10px;" onclick="toggleCiclo(${i})">Ver movimientos</button>
-                    </div>
-                    <div id="cicloMovimientos${i}" class="ciclo-movimientos">
-                        ${generarTablaCiclo(ciclo.movimientos)}
-                    </div>
-                </div>
-            `;
-        }
-        ciclosList.innerHTML = html;
-    }
-
-    function generarTablaCiclo(movimientosCiclo) {
-        let saldo = 0;
-        let html = '<div class="table-wrapper" style="margin-top:10px;"><table style="width:100%;"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th></tr></thead><tbody>';
-        const ordenados = [...movimientosCiclo].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
-        for (let m of ordenados) {
-            const valorTotal = m.cantidad * m.valorUnitario;
-            const esAbono = m.item && m.item.toLowerCase().includes('abono');
-            const nuevoSaldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
-            const rowClass = esAbono ? 'abono-row' : '';
-            html += `<tr class="${rowClass}">
-                <td>${formatearFecha(m.fechaISO)}</td>
-                <td>${escapeHtml(m.item)}</td>
-                <td>${m.cantidad}</td>
-                <td>${formatoMoneda(m.valorUnitario)}</td>
-                <td>${formatoMoneda(valorTotal)}</td>
-                <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
-            </tr>`;
-            saldo = nuevoSaldo;
-        }
-        html += '</tbody></table></div>';
-        return html;
-    }
-
-    window.toggleCiclo = function(index) {
-        const el = document.getElementById(`cicloMovimientos${index}`);
-        if (el) el.classList.toggle('visible');
-    };
 
     window.seleccionarSugerencia = function(val) {
         if (itemInput) itemInput.value = val;
