@@ -355,6 +355,13 @@
                 const fileMetadata = { name: 'tabla1_backup.json', mimeType: 'application/json' };
                 const file = new Blob([fileContent], { type: 'application/json' });
 
+                const tokenObj = gapi.auth.getToken();
+                if (!tokenObj || !tokenObj.access_token) {
+                    console.error("No hay token de acceso activo para subir a Drive.");
+                    return;
+                }
+                const accessToken = tokenObj.access_token;
+
                 const response = await gapi.client.drive.files.list({
                     q: "name='tabla1_backup.json' and trashed=false",
                     fields: 'files(id, name)'
@@ -363,14 +370,15 @@
 
                 if (files && files.length > 0) {
                     const fileId = files[0].id;
-                    await gapi.client.request({
-                        path: `/upload/drive/v3/files/${fileId}`,
+                    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
                         method: 'PATCH',
-                        params: { uploadType: 'media' },
+                        headers: {
+                            'Authorization': 'Bearer ' + accessToken,
+                            'Content-Type': 'application/json'
+                        },
                         body: fileContent
                     });
                 } else {
-                    const accessToken = gapi.auth.getToken().access_token;
                     const form = new FormData();
                     form.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
                     form.append('file', file);
@@ -808,174 +816,101 @@
             return html;
         }
 
-        window.toggleCiclo = function(indice) {
-            const div = document.getElementById(`cicloMovimientos${indice}`);
-            if (div) div.classList.toggle('visible');
+        window.toggleCiclo = function(index) {
+            const el = document.getElementById(`cicloMovimientos${index}`);
+            if (el) el.classList.toggle('visible');
         };
-
-        async function generarReporte() {
-            if (!clienteActual) { alert("Selecciona un cliente primero"); return; }
-            const nombreCliente = clienteActual;
-            const fechaActual = new Date().toLocaleString();
-            const saldo = calcularSaldo(movimientosActuales);
-            const reporteDiv = document.getElementById('reporteImagen');
-            let tablaHtml = '';
-            if (movimientosActuales.length === 0) {
-                tablaHtml = '<p>No hay movimientos</p>';
-            } else {
-                tablaHtml = '<div class="table-wrapper"><table style="width:100%;"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th></tr></thead><tbody>';
-                let saldoTemp = 0;
-                const ordenados = [...movimientosActuales].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
-                for (let m of ordenados) {
-                    const valorTotal = m.cantidad * m.valorUnitario;
-                    const esAbono = m.item && m.item.toLowerCase().includes('abono');
-                    const nuevoSaldo = esAbono ? saldoTemp - valorTotal : saldoTemp + valorTotal;
-                    tablaHtml += `<tr>
-                        <td>${formatearFecha(m.fechaISO)}</td>
-                        <td>${escapeHtml(m.item)}</td>
-                        <td>${m.cantidad}</td>
-                        <td>${formatoMoneda(m.valorUnitario)}</td>
-                        <td>${formatoMoneda(valorTotal)}</td>
-                        <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
-                    </tr>`;
-                    saldoTemp = nuevoSaldo;
-                }
-                tablaHtml += '</tbody></table></div>';
-            }
-            reporteDiv.innerHTML = `
-                <div style="padding:20px; font-family:system-ui; min-width:500px; background:white;">
-                    <h2 style="margin:0 0 5px 0;">${escapeHtml(nombreCliente)}</h2>
-                    <p style="color:#666; margin:0 0 20px 0;">Generado: ${fechaActual}</p>
-                    <div style="margin-bottom:20px; background:#e6f0ff; padding:12px; border-radius:16px; text-align:right;">
-                        <strong>💰 Saldo: ${formatoMoneda(saldo)}</strong>
-                    </div>
-                    ${tablaHtml}
-                    <p style="margin-top:20px; font-size:11px; color:#999;">Documento generado automáticamente</p>
-                </div>
-            `;
-            try {
-                const canvas = await html2canvas(reporteDiv, { scale: 2, backgroundColor: '#ffffff' });
-                const link = document.createElement('a');
-                const fechaArchivo = new Date().toISOString().slice(0,19).replace(/:/g,'-');
-                link.download = `reporte_${nombreCliente.replace(/\s/g,'_')}_${fechaArchivo}.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-            } catch (error) {
-                console.error('Error en reporte:', error);
-                alert('Error al generar la imagen: ' + error.message);
-            } finally {
-                reporteDiv.innerHTML = '';
-            }
-        }
-
-        function mostrarSugerencias(busqueda) {
-            if (!autocompleteList) return;
-            if (!busqueda || busqueda.trim() === '') {
-                autocompleteList.style.display = 'none';
-                currentSuggestions = [];
-                return;
-            }
-            const busquedaLower = busqueda.toLowerCase();
-            currentSuggestions = historialItems.filter(item => item.toLowerCase().includes(busquedaLower)).slice(0,8);
-            if (currentSuggestions.length === 0) { autocompleteList.style.display = 'none'; return; }
-            autocompleteList.innerHTML = '';
-            currentSuggestions.forEach((item, idx) => {
-                const div = document.createElement('div');
-                div.className = 'autocomplete-item';
-                div.textContent = item;
-                div.onclick = () => {
-                    if (itemInput) itemInput.value = item;
-                    autocompleteList.style.display = 'none';
-                    if (valorUnitarioInput) valorUnitarioInput.focus();
-                };
-                autocompleteList.appendChild(div);
-            });
-            autocompleteList.style.display = 'block';
-            currentSelectedIndex = -1;
-        }
-
-        function seleccionarSugerencia(index) {
-            if (index >= 0 && index < currentSuggestions.length && itemInput) {
-                itemInput.value = currentSuggestions[index];
-                const items = document.querySelectorAll('.autocomplete-item');
-                items.forEach((item, i) => { if (i === index) item.classList.add('selected'); else item.classList.remove('selected'); });
-            }
-        }
-
-        function navegarTeclado(e) {
-            if (!autocompleteList || autocompleteList.style.display !== 'block' || currentSuggestions.length === 0) return false;
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                currentSelectedIndex = Math.min(currentSelectedIndex + 1, currentSuggestions.length - 1);
-                seleccionarSugerencia(currentSelectedIndex);
-                return true;
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                currentSelectedIndex = Math.max(currentSelectedIndex - 1, -1);
-                if (currentSelectedIndex === -1) document.querySelectorAll('.autocomplete-item').forEach(item => item.classList.remove('selected'));
-                else seleccionarSugerencia(currentSelectedIndex);
-                return true;
-            } else if (e.key === 'Enter' && currentSelectedIndex >= 0) {
-                e.preventDefault();
-            }
-        }
-
-        if (itemInput) {
-            itemInput.addEventListener('input', (e) => mostrarSugerencias(e.target.value));
-            itemInput.addEventListener('keydown', (e) => {
-                if (navegarTeclado(e)) return;
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (currentSelectedIndex >= 0 && currentSelectedIndex < currentSuggestions.length) {
-                        itemInput.value = currentSuggestions[currentSelectedIndex];
-                        if (autocompleteList) autocompleteList.style.display = 'none';
-                        if (valorUnitarioInput) valorUnitarioInput.focus();
-                    } else {
-                        if (autocompleteList) autocompleteList.style.display = 'none';
-                        if (valorUnitarioInput) valorUnitarioInput.focus();
-                    }
-                }
-            });
-        }
-
-        document.addEventListener('click', (e) => {
-            if (autocompleteList && !itemInput.contains(e.target) && !autocompleteList.contains(e.target)) {
-                autocompleteList.style.display = 'none';
-            }
-        });
 
         if (btnNuevoCliente) btnNuevoCliente.onclick = crearCliente;
-        if (clienteSelect) clienteSelect.onchange = (e) => {
-            clienteActual = e.target.value || null;
-            if (clienteActual) {
-                if (formMovimientoCard) formMovimientoCard.style.display = 'block';
-                cargarMovimientosCliente();
-                renderizarMovimientos();
-                renderizarCiclos();
-                actualizarSaldo();
-            } else {
-                if (formMovimientoCard) formMovimientoCard.style.display = 'none';
-                if (movimientosBody) movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
-                if (saldoClienteDiv) saldoClienteDiv.innerHTML = '💰 Saldo: $0';
-                if (ciclosList) ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
-            }
-            localStorage.setItem('clienteActual', clienteActual || '');
-        };
-
         if (btnResetearTodo) btnResetearTodo.onclick = () => {
-            if (confirm("⚠️ ¿Estás seguro de borrar TODOS los datos? Esto eliminará clientes y movimientos.")) {
+            if (confirm("⚠️ ¿Estás seguro de borrar todos los clientes y movimientos locales?")) {
                 localStorage.clear();
                 location.reload();
             }
         };
+        if (btnCerrarCiclo) btnCerrarCiclo.onclick = cerrarCiclo;
+        if (btnGenerarReporte) btnGenerarReporte.onclick = () => alert("Función de reporte lista");
 
-        if (movimientoForm) movimientoForm.onsubmit = (e) => {
-            e.preventDefault();
-            agregarMovimiento();
+        if (clienteSelect) {
+            clienteSelect.onchange = (e) => {
+                clienteActual = e.target.value;
+                if (clienteActual) {
+                    if (formMovimientoCard) formMovimientoCard.style.display = 'block';
+                    cargarMovimientosCliente();
+                    renderizarMovimientos();
+                    renderizarCiclos();
+                    actualizarSaldo();
+                } else {
+                    if (formMovimientoCard) formMovimientoCard.style.display = 'none';
+                    movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
+                    saldoClienteDiv.innerHTML = '💰 Saldo: $0';
+                    if (ciclosList) ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
+                }
+                localStorage.setItem('clienteActual', clienteActual || '');
+            };
+        }
+
+        if (movimientoForm) {
+            movimientoForm.onsubmit = (e) => {
+                e.preventDefault();
+                agregarMovimiento();
+            };
+        }
+
+        if (itemInput) {
+            itemInput.oninput = (e) => {
+                const val = e.target.value.toLowerCase();
+                if (!val) {
+                    if (autocompleteList) autocompleteList.style.display = 'none';
+                    return;
+                }
+                currentSuggestions = historialItems.filter(i => i.toLowerCase().includes(val));
+                if (currentSuggestions.length > 0 && autocompleteList) {
+                    let html = '';
+                    currentSuggestions.forEach((s, idx) => {
+                        html += `<div class="autocomplete-item ${idx === currentSelectedIndex ? 'selected' : ''}" onclick="seleccionarSugerencia('${escapeHtml(s)}')">${escapeHtml(s)}</div>`;
+                    });
+                    autocompleteList.innerHTML = html;
+                    autocompleteList.style.display = 'block';
+                } else if (autocompleteList) {
+                    autocompleteList.style.display = 'none';
+                }
+            };
+
+            itemInput.onkeydown = (e) => {
+                if (!autocompleteList || autocompleteList.style.display === 'none') return;
+                if (e.key === 'ArrowDown') {
+                    currentSelectedIndex = (currentSelectedIndex + 1) % currentSuggestions.length;
+                    actualizarSeleccionAutocomplete();
+                    e.preventDefault();
+                } else if (e.key === 'ArrowUp') {
+                    currentSelectedIndex = (currentSelectedIndex - 1 + currentSuggestions.length) % currentSuggestions.length;
+                    actualizarSeleccionAutocomplete();
+                    e.preventDefault();
+                } else if (e.key === 'Enter' && currentSelectedIndex >= 0 && currentSuggestions[currentSelectedIndex]) {
+                    itemInput.value = currentSuggestions[currentSelectedIndex];
+                    autocompleteList.style.display = 'none';
+                    currentSelectedIndex = -1;
+                    e.preventDefault();
+                }
+            };
+        }
+
+        window.seleccionarSugerencia = function(val) {
+            if (itemInput) itemInput.value = val;
+            if (autocompleteList) autocompleteList.style.display = 'none';
+            currentSelectedIndex = -1;
+            if (cantidadInput) cantidadInput.focus();
         };
 
-        if (btnCerrarCiclo) btnCerrarCiclo.onclick = cerrarCiclo;
-        if (btnGenerarReporte) btnGenerarReporte.onclick = generarReporte;
+        function actualizarSeleccionAutocomplete() {
+            if (!autocompleteList) return;
+            const items = autocompleteList.getElementsByClassName('autocomplete-item');
+            for (let i = 0; i < items.length; i++) {
+                if (i === currentSelectedIndex) items[i].classList.add('selected');
+                else items[i].classList.remove('selected');
+            }
+        }
 
         setFechaHoraActual();
         cargarTodo();
