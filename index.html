@@ -124,10 +124,18 @@
                 background: #3367D6;
             }
 
+        .btn-save {
+            background: #f59e0b;
+        }
+            .btn-save:hover {
+                background: #d97706;
+            }
+
         .button-group {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            align-items: center;
         }
 
         .form-card {
@@ -263,6 +271,18 @@
                 display: block;
             }
 
+        .status-bar {
+            background: #fff3cd;
+            color: #856404;
+            padding: 8px 16px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+        }
+
         footer {
             font-size: 0.7rem;
             text-align: center;
@@ -289,13 +309,25 @@
         let tokenClient;
         let driveAutosyncEnabled = false;
 
-        // Variables de datos centralizadas en memoria (Nube)
         let appData = {
             clientes: [],
             clienteActual: null,
             historialItems: [],
             detalles: {}
         };
+
+        function mostrarEstado(mensaje, color = '#fff3cd', textColor = '#856404') {
+            const bar = document.getElementById('statusBar');
+            if (bar) {
+                bar.textContent = mensaje;
+                bar.style.background = color;
+                bar.style.color = textColor;
+                bar.style.display = 'block';
+                if (color === '#d1fae5') {
+                    setTimeout(() => { bar.style.display = 'none'; }, 4000);
+                }
+            }
+        }
 
         function initGoogleAPI() {
             gapi.load('client', async () => {
@@ -320,7 +352,6 @@
                 const btn = document.getElementById('btnConectarDrive');
                 if (btn) btn.style.display = 'inline-block';
 
-                // Autoreconexión automática si ya estaba conectado
                 if (localStorage.getItem('driveConnected') === 'true') {
                     tokenClient.requestAccessToken({ prompt: '' });
                 }
@@ -352,15 +383,22 @@
             }
         }
 
-        async function subirADrive() {
-            if (!driveAutosyncEnabled) return;
+        async function subirADriveManual() {
+            if (!driveAutosyncEnabled) {
+                alert("Primero debes conectar con Google Drive.");
+                return;
+            }
+            mostrarEstado("⏳ Guardando cambios en Google Drive...", "#e0f2fe", "#0369a1");
             try {
                 const fileContent = JSON.stringify(appData);
                 const fileMetadata = { name: 'tabla1_backup.json', mimeType: 'application/json' };
                 const file = new Blob([fileContent], { type: 'application/json' });
 
                 const tokenObj = gapi.auth.getToken();
-                if (!tokenObj || !tokenObj.access_token) return;
+                if (!tokenObj || !tokenObj.access_token) {
+                    alert("Sesión expirada. Vuelve a conectar con Drive.");
+                    return;
+                }
                 const accessToken = tokenObj.access_token;
 
                 const response = await gapi.client.drive.files.list({
@@ -390,13 +428,15 @@
                         body: form
                     });
                 }
-                console.log('Datos guardados directamente en la nube.');
+                mostrarEstado("✅ ¡Guardado y respaldado en Google Drive con éxito!", "#d1fae5", "#065f46");
             } catch (err) {
                 console.error('Error al guardar en Drive:', err);
+                mostrarEstado("❌ Error al guardar en Drive. Revisa tu conexión.", "#fee2e2", "#991b1b");
             }
         }
 
         async function descargarDesdeDrive() {
+            mostrarEstado("⏳ Sincronizando datos desde Google Drive...", "#e0f2fe", "#0369a1");
             try {
                 const response = await gapi.client.drive.files.list({
                     q: "name='tabla1_backup.json' and trashed=false",
@@ -419,24 +459,25 @@
                         }
                     }
                 } else {
-                    // Si no existe el archivo en la nube, lo creamos vacío por primera vez
-                    await subirADrive();
+                    await subirADriveManual();
                 }
-                // Refrescamos la interfaz con los datos traídos de la nube
                 actualizarInterfazCompleta();
+                mostrarEstado("✅ Datos sincronizados correctamente desde la nube.", "#d1fae5", "#065f46");
             } catch (err) {
                 console.error('Error al descargar de Drive:', err);
+                mostrarEstado("❌ Error al descargar de Drive.", "#fee2e2", "#991b1b");
             }
         }
     </script>
-    <!-- Librerías de Google Drive con inicialización segura -->
     <script async defer src="https://accounts.google.com/gsi/client"></script>
     <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};initGoogleAPI()"></script>
 </head>
 <body>
-<div class="container">
-    <h1>📋 Gestión de Clientes (Modo Nube)</h1>
+<div class="container" id="reporteContenedor">
+    <h1>📋 Gestión de Clientes</h1>
     <div class="sub">Cargos suman | Abonos (escribe "abono" en el ítem) restan | Verde = Abono</div>
+
+    <div id="statusBar" class="status-bar">Estado del sistema</div>
 
     <div class="clientes-section">
         <div class="clientes-header">
@@ -447,8 +488,10 @@
             </div>
             <div class="button-group">
                 <button id="btnConectarDrive" class="btn-drive">☁️ Conectar Drive</button>
+                <button id="btnGuardarDrive" class="btn-save">💾 Guardar en Drive</button>
+                <button id="btnSincronizar" class="btn-outline">🔄 Sincronizar / Descargar</button>
                 <button id="btnCerrarCiclo" class="btn-cycle" style="display: none;">🔁 Cerrar ciclo</button>
-                <button id="btnGenerarReporte" class="btn-success">📸 Generar Imagen Reporte</button>
+                <button id="btnGenerarReporte" class="btn-success">📸 Generar Imagen</button>
             </div>
         </div>
         <div id="saldoCliente" class="saldo-cliente">💰 Saldo: $0</div>
@@ -469,13 +512,11 @@
     <div class="table-wrapper"><table id="tablaMovimientos"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th><th>Eliminar</th></tr></thead><tbody id="movimientosBody"><tr><td colspan="7" style="text-align:center;">Conéctate a Drive para ver los registros</td></tr></tbody></table></div>
 
     <div class="ciclos-section"><h3>📚 Ciclos anteriores</h3><div id="ciclosList"><p style="color:#666;">No hay ciclos cerrados</p></div></div>
-    <footer>💡 Los datos se sincronizan y guardan exclusivamente en tu Google Drive.</footer>
+    <footer>💡 Agrega tus registros con tranquilidad y presiona "Guardar en Drive" cuando termines.</footer>
 </div>
-<div id="reporteImagen" style="position: fixed; top: -9999px; left: -9999px;"></div>
 
 <script>
-    // Referencias globales de interfaz
-    let clienteSelect, btnNuevoCliente, btnResetearTodo, btnCerrarCiclo, btnGenerarReporte;
+    let clienteSelect, btnNuevoCliente, btnResetearTodo, btnCerrarCiclo, btnGenerarReporte, btnGuardarDrive, btnSincronizar;
     let formMovimientoCard, saldoClienteDiv, movimientosBody, movimientoForm;
     let fechaHoraInput, itemInput, cantidadInput, valorUnitarioInput, autocompleteList, ciclosList;
 
@@ -489,6 +530,8 @@
         clienteSelect = document.getElementById('clienteSelect');
         btnNuevoCliente = document.getElementById('btnNuevoCliente');
         btnResetearTodo = document.getElementById('btnResetearTodo');
+        btnGuardarDrive = document.getElementById('btnGuardarDrive');
+        btnSincronizar = document.getElementById('btnSincronizar');
         btnCerrarCiclo = document.getElementById('btnCerrarCiclo');
         btnGenerarReporte = document.getElementById('btnGenerarReporte');
         formMovimientoCard = document.getElementById('formMovimientoCard');
@@ -502,22 +545,43 @@
         autocompleteList = document.getElementById('autocompleteList');
         ciclosList = document.getElementById('ciclosList');
 
+        if (btnGuardarDrive) btnGuardarDrive.onclick = subirADriveManual;
+        if (btnSincronizar) btnSincronizar.onclick = descargarDesdeDrive;
+
         if (btnNuevoCliente) btnNuevoCliente.onclick = crearCliente;
         if (btnResetearTodo) btnResetearTodo.onclick = () => {
             if (confirm("⚠️ ¿Estás seguro de vaciar todo el archivo en la nube?")) {
                 appData = { clientes: [], clienteActual: null, historialItems: [], detalles: {} };
-                subirADrive();
+                subirADriveManual();
                 actualizarInterfazCompleta();
             }
         };
         if (btnCerrarCiclo) btnCerrarCiclo.onclick = cerrarCiclo;
-        if (btnGenerarReporte) btnGenerarReporte.onclick = () => alert("Función de reporte lista");
+        
+        if (btnGenerarReporte) {
+            btnGenerarReporte.onclick = () => {
+                const elemento = document.getElementById('reporteContenedor');
+                const formCard = document.getElementById('formMovimientoCard');
+                if (formCard) formCard.style.display = 'none';
+                
+                html2canvas(elemento, { scale: 2 }).then(canvas => {
+                    if (formCard && appData.clienteActual) formCard.style.display = 'block';
+                    
+                    const enlace = document.createElement('a');
+                    enlace.download = `Reporte_${appData.clienteActual || 'Finanzas'}.png`;
+                    enlace.href = canvas.toDataURL('image/png');
+                    enlace.click();
+                }).catch(err => {
+                    console.error('Error generando imagen:', err);
+                    alert('No se pudo generar la imagen del reporte.');
+                });
+            };
+        }
 
         if (clienteSelect) {
             clienteSelect.onchange = (e) => {
                 appData.clienteActual = e.target.value;
                 actualizarInterfazCompleta();
-                subirADrive();
             };
         }
 
@@ -545,24 +609,6 @@
                     autocompleteList.style.display = 'block';
                 } else if (autocompleteList) {
                     autocompleteList.style.display = 'none';
-                }
-            };
-
-            itemInput.onkeydown = (e) => {
-                if (!autocompleteList || autocompleteList.style.display === 'none') return;
-                if (e.key === 'ArrowDown') {
-                    currentSelectedIndex = (currentSelectedIndex + 1) % currentSuggestions.length;
-                    actualizarSeleccionAutocomplete();
-                    e.preventDefault();
-                } else if (e.key === 'ArrowUp') {
-                    currentSelectedIndex = (currentSelectedIndex - 1 + currentSuggestions.length) % currentSuggestions.length;
-                    actualizarSeleccionAutocomplete();
-                    e.preventDefault();
-                } else if (e.key === 'Enter' && currentSelectedIndex >= 0 && currentSuggestions[currentSelectedIndex]) {
-                    itemInput.value = currentSuggestions[currentSelectedIndex];
-                    autocompleteList.style.display = 'none';
-                    currentSelectedIndex = -1;
-                    e.preventDefault();
                 }
             };
         }
@@ -649,9 +695,8 @@
         }
         appData.clientes.push(nombre);
         appData.clienteActual = nombre;
-        subirADrive();
         actualizarInterfazCompleta();
-        alert(`Cliente "${nombre}" creado en la nube.`);
+        mostrarEstado("⚠️ Cliente creado localmente. No olvides hacer clic en 'Guardar en Drive'.", "#fff3cd", "#856404");
     }
 
     function calcularSaldo(movimientos) {
@@ -716,8 +761,8 @@
         if (confirm("¿Eliminar este movimiento?")) {
             const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
             movimientosActuales.splice(indice, 1);
-            subirADrive();
             renderizarMovimientos();
+            mostrarEstado("⚠️ Movimiento eliminado localmente. Presiona 'Guardar en Drive'.", "#fff3cd", "#856404");
         }
     };
 
@@ -751,7 +796,6 @@
 
             appData.detalles[`movimientos_${appData.clienteActual}`].push(data);
             
-            subirADrive();
             renderizarMovimientos();
 
             itemInput.value = '';
@@ -759,6 +803,7 @@
             valorUnitarioInput.value = '';
             setFechaHoraActual();
             itemInput.focus();
+            mostrarEstado("⚠️ Registro agregado. Recuerda hacer clic en 'Guardar en Drive'.", "#fff3cd", "#856404");
         } catch (error) {
             console.error('Error en agregarMovimiento:', error);
             alert('Error inesperado: ' + error.message);
@@ -771,7 +816,7 @@
         if (saldo !== 0) { alert("⚠️ Solo puedes cerrar el ciclo cuando el saldo sea $0"); return; }
         if (movimientosActuales.length === 0) { alert("No hay movimientos para archivar"); return; }
         
-        if (confirm("¿Cerrar ciclo? Los movimientos se archivarán en la nube.")) {
+        if (confirm("¿Cerrar ciclo?")) {
             const ciclo = {
                 fechaCierre: new Date().toISOString(),
                 saldoFinal: saldo,
@@ -785,10 +830,9 @@
             appData.detalles[`ciclos_${appData.clienteActual}`].unshift(ciclo);
             appData.detalles[`movimientos_${appData.clienteActual}`] = [];
             
-            subirADrive();
             renderizarMovimientos();
             renderizarCiclos();
-            alert("✅ Ciclo cerrado y respaldado en la nube.");
+            mostrarEstado("⚠️ Ciclo cerrado localmente. Presiona 'Guardar en Drive'.", "#fff3cd", "#856404");
         }
     }
 
@@ -857,15 +901,6 @@
         currentSelectedIndex = -1;
         if (cantidadInput) cantidadInput.focus();
     };
-
-    function actualizarSeleccionAutocomplete() {
-        if (!autocompleteList) return;
-        const items = autocompleteList.getElementsByClassName('autocomplete-item');
-        for (let i = 0; i < items.length; i++) {
-            if (i === currentSelectedIndex) items[i].classList.add('selected');
-            else items[i].classList.remove('selected');
-        }
-    }
 </script>
 </body>
 </html>
