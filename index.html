@@ -289,6 +289,14 @@
         let tokenClient;
         let driveAutosyncEnabled = false;
 
+        // Variables de datos centralizadas en memoria (Nube)
+        let appData = {
+            clientes: [],
+            clienteActual: null,
+            historialItems: [],
+            detalles: {}
+        };
+
         function initGoogleAPI() {
             gapi.load('client', async () => {
                 try {
@@ -312,7 +320,7 @@
                 const btn = document.getElementById('btnConectarDrive');
                 if (btn) btn.style.display = 'inline-block';
 
-                // Si ya se había conectado antes en esta sesión, intentamos restaurar estado silenciosamente
+                // Autoreconexión automática si ya estaba conectado
                 if (localStorage.getItem('driveConnected') === 'true') {
                     tokenClient.requestAccessToken({ prompt: '' });
                 }
@@ -321,7 +329,7 @@
             }
         }
 
-        function handleAuthResponse(resp) {
+        async function handleAuthResponse(resp) {
             if (resp.error !== undefined) {
                 localStorage.removeItem('driveConnected');
                 throw (resp);
@@ -333,7 +341,7 @@
                 btnDrive.textContent = '☁️ Drive Conectado ✓';
                 btnDrive.style.background = '#10b981';
             }
-            descargarDesdeDriveSilent();
+            await descargarDesdeDrive();
         }
 
         function handleAuthClick() {
@@ -347,26 +355,12 @@
         async function subirADrive() {
             if (!driveAutosyncEnabled) return;
             try {
-                const datosACopia = {
-                    clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
-                    historialItems: JSON.parse(localStorage.getItem('historialItems') || '[]'),
-                    detalles: {}
-                };
-                const clientes = datosACopia.clientes;
-                clientes.forEach(c => {
-                    datosACopia.detalles[`movimientos_${c}`] = JSON.parse(localStorage.getItem(`movimientos_${c}`) || '[]');
-                    datosACopia.detalles[`ciclos_${c}`] = JSON.parse(localStorage.getItem(`ciclos_${c}`) || '[]');
-                });
-
-                const fileContent = JSON.stringify(datosACopia);
+                const fileContent = JSON.stringify(appData);
                 const fileMetadata = { name: 'tabla1_backup.json', mimeType: 'application/json' };
                 const file = new Blob([fileContent], { type: 'application/json' });
 
                 const tokenObj = gapi.auth.getToken();
-                if (!tokenObj || !tokenObj.access_token) {
-                    console.error("No hay token de acceso activo para subir a Drive.");
-                    return;
-                }
+                if (!tokenObj || !tokenObj.access_token) return;
                 const accessToken = tokenObj.access_token;
 
                 const response = await gapi.client.drive.files.list({
@@ -396,9 +390,9 @@
                         body: form
                     });
                 }
-                console.log('Respaldo en Drive actualizado correctamente.');
+                console.log('Datos guardados directamente en la nube.');
             } catch (err) {
-                console.error('Error al sincronizar con Drive:', err);
+                console.error('Error al guardar en Drive:', err);
             }
         }
 
@@ -417,53 +411,21 @@
                     });
                     const remoteData = fileResp.result;
                     if (remoteData && remoteData.clientes) {
-                        localStorage.setItem('clientes', JSON.stringify(remoteData.clientes));
-                        localStorage.setItem('historialItems', JSON.stringify(remoteData.historialItems || []));
-                        if (remoteData.detalles) {
-                            for (let key in remoteData.detalles) {
-                                localStorage.setItem(key, JSON.stringify(remoteData.detalles[key]));
-                            }
+                        appData = remoteData;
+                        if (!appData.detalles) appData.detalles = {};
+                        if (!appData.historialItems) appData.historialItems = [];
+                        if (appData.clienteActual && !appData.clientes.includes(appData.clienteActual)) {
+                            appData.clienteActual = null;
                         }
-                        location.reload();
                     }
+                } else {
+                    // Si no existe el archivo en la nube, lo creamos vacío por primera vez
+                    await subirADrive();
                 }
+                // Refrescamos la interfaz con los datos traídos de la nube
+                actualizarInterfazCompleta();
             } catch (err) {
                 console.error('Error al descargar de Drive:', err);
-            }
-        }
-
-        async function descargarDesdeDriveSilent() {
-            try {
-                const response = await gapi.client.drive.files.list({
-                    q: "name='tabla1_backup.json' and trashed=false",
-                    fields: 'files(id, name)'
-                });
-                const files = response.result.files;
-                if (files && files.length > 0) {
-                    const fileId = files[0].id;
-                    const fileResp = await gapi.client.drive.files.get({
-                        fileId: fileId,
-                        alt: 'media'
-                    });
-                    const remoteData = fileResp.result;
-                    if (remoteData && remoteData.clientes) {
-                        // Comparamos o actualizamos silenciosamente sin recargar bucles infinitos si es igual, o recargamos una vez si hay cambios
-                        const localClientes = localStorage.getItem('clientes');
-                        const remoteClientes = JSON.stringify(remoteData.clientes);
-                        if (localClientes !== remoteClientes) {
-                            localStorage.setItem('clientes', remoteClientes);
-                            localStorage.setItem('historialItems', JSON.stringify(remoteData.historialItems || []));
-                            if (remoteData.detalles) {
-                                for (let key in remoteData.detalles) {
-                                    localStorage.setItem(key, JSON.stringify(remoteData.detalles[key]));
-                                }
-                            }
-                            location.reload();
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error('Error al descargar silenciosamente de Drive:', err);
             }
         }
     </script>
@@ -473,7 +435,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>📋 Gestión de Clientes</h1>
+    <h1>📋 Gestión de Clientes (Modo Nube)</h1>
     <div class="sub">Cargos suman | Abonos (escribe "abono" en el ítem) restan | Verde = Abono</div>
 
     <div class="clientes-section">
@@ -481,7 +443,7 @@
             <div class="selector-cliente">
                 <select id="clienteSelect"><option value="">-- Seleccionar cliente --</option></select>
                 <button id="btnNuevoCliente" class="btn-outline">➕ Nuevo Cliente</button>
-                <button id="btnResetearTodo" class="btn-outline" style="background:#ef4444; color:white;">🗑️ Resetear todo</button>
+                <button id="btnResetearTodo" class="btn-outline" style="background:#ef4444; color:white;">🗑️ Resetear nube</button>
             </div>
             <div class="button-group">
                 <button id="btnConectarDrive" class="btn-drive">☁️ Conectar Drive</button>
@@ -504,370 +466,48 @@
         </form>
     </div>
 
-    <div class="table-wrapper"><table id="tablaMovimientos"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th><th>Eliminar</th></tr></thead><tbody id="movimientosBody"><tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr></tbody></table></div>
+    <div class="table-wrapper"><table id="tablaMovimientos"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th><th>Eliminar</th></tr></thead><tbody id="movimientosBody"><tr><td colspan="7" style="text-align:center;">Conéctate a Drive para ver los registros</td></tr></tbody></table></div>
 
     <div class="ciclos-section"><h3>📚 Ciclos anteriores</h3><div id="ciclosList"><p style="color:#666;">No hay ciclos cerrados</p></div></div>
-    <footer>💡 Los datos se guardan en tu navegador y se sincronizan con tu Google Drive.</footer>
+    <footer>💡 Los datos se sincronizan y guardan exclusivamente en tu Google Drive.</footer>
 </div>
 <div id="reporteImagen" style="position: fixed; top: -9999px; left: -9999px;"></div>
 
 <script>
+    // Referencias globales de interfaz
+    let clienteSelect, btnNuevoCliente, btnResetearTodo, btnCerrarCiclo, btnGenerarReporte;
+    let formMovimientoCard, saldoClienteDiv, movimientosBody, movimientoForm;
+    let fechaHoraInput, itemInput, cantidadInput, valorUnitarioInput, autocompleteList, ciclosList;
+
+    let currentSuggestions = [];
+    let currentSelectedIndex = -1;
+
     document.addEventListener('DOMContentLoaded', () => {
         const btnDrive = document.getElementById('btnConectarDrive');
         if (btnDrive) btnDrive.onclick = handleAuthClick;
 
-        const clienteSelect = document.getElementById('clienteSelect');
-        const btnNuevoCliente = document.getElementById('btnNuevoCliente');
-        const btnResetearTodo = document.getElementById('btnResetearTodo');
-        const btnCerrarCiclo = document.getElementById('btnCerrarCiclo');
-        const btnGenerarReporte = document.getElementById('btnGenerarReporte');
-        const formMovimientoCard = document.getElementById('formMovimientoCard');
-        const saldoClienteDiv = document.getElementById('saldoCliente');
-        const movimientosBody = document.getElementById('movimientosBody');
-        const movimientoForm = document.getElementById('movimientoForm');
-        const fechaHoraInput = document.getElementById('fechaHora');
-        const itemInput = document.getElementById('item');
-        const cantidadInput = document.getElementById('cantidad');
-        const valorUnitarioInput = document.getElementById('valorUnitario');
-        const autocompleteList = document.getElementById('autocompleteList');
-        const ciclosList = document.getElementById('ciclosList');
-        const btnAgregarMovimiento = document.getElementById('btnAgregarMovimiento');
-
-        if (!clienteSelect || !movimientosBody || !saldoClienteDiv) {
-            console.error('Elementos críticos no encontrados');
-            alert('Error de carga de la aplicación. Recarga la página.');
-            return;
-        }
-
-        let clientes = [];
-        let clienteActual = null;
-        let movimientosActuales = [];
-        let ciclosCerrados = [];
-        let historialItems = [];
-
-        let currentSuggestions = [];
-        let currentSelectedIndex = -1;
-
-        function setFechaHoraActual() {
-            if (!fechaHoraInput) return;
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            fechaHoraInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
-        }
-
-        function formatoMoneda(valor) {
-            return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valor);
-        }
-
-        function formatearFecha(fechaISO) {
-            if (!fechaISO) return '';
-            let [fecha, hora] = fechaISO.split('T');
-            let [year, month, day] = fecha.split('-');
-            return `${day}/${month}/${year} ${hora?.substring(0,5) || '00:00'}`;
-        }
-
-        function formatearNumero(numero) {
-            return new Intl.NumberFormat('es-CO').format(numero);
-        }
-
-        function agregarTresCeros(valor) {
-            if (!valor || valor === '') return 0;
-            let limpio = valor.toString().replace(/\./g, '').replace(/,/g, '').trim();
-            let num = parseFloat(limpio);
-            if (isNaN(num)) return 0;
-            return num * 1000;
-        }
-
-        function parseMonedaInput(valor) {
-            if (!valor) return 0;
-            let limpio = valor.toString().replace(/\./g, '').replace(/,/g, '');
-            return parseFloat(limpio) || 0;
-        }
-
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&';
-                if (m === '<') return '<';
-                if (m === '>') return '>';
-                return m;
-            });
-        }
-
-        function guardarTodo() {
-            try {
-                localStorage.setItem('clientes', JSON.stringify(clientes));
-                if (clienteActual) {
-                    localStorage.setItem(`movimientos_${clienteActual}`, JSON.stringify(movimientosActuales));
-                    localStorage.setItem(`ciclos_${clienteActual}`, JSON.stringify(ciclosCerrados));
-                }
-                localStorage.setItem('historialItems', JSON.stringify(historialItems.slice(0, 20)));
-                localStorage.setItem('clienteActual', clienteActual || '');
-                subirADrive();
-            } catch (e) {
-                console.error('Error guardando:', e);
-                alert('Error al guardar datos. Posiblemente el almacenamiento local esté lleno.');
-            }
-        }
-
-        function cargarTodo() {
-            try {
-                const clientesGuardados = localStorage.getItem('clientes');
-                clientes = clientesGuardados ? JSON.parse(clientesGuardados) : [];
-                const historial = localStorage.getItem('historialItems');
-                historialItems = historial ? JSON.parse(historial) : [];
-                const clienteActualGuardado = localStorage.getItem('clienteActual');
-                if (clienteActualGuardado && clientes.includes(clienteActualGuardado)) {
-                    clienteActual = clienteActualGuardado;
-                    const movs = localStorage.getItem(`movimientos_${clienteActual}`);
-                    movimientosActuales = movs ? JSON.parse(movs) : [];
-                    const ciclos = localStorage.getItem(`ciclos_${clienteActual}`);
-                    ciclosCerrados = ciclos ? JSON.parse(ciclos) : [];
-                } else {
-                    clienteActual = null;
-                    movimientosActuales = [];
-                    ciclosCerrados = [];
-                }
-                actualizarSelectorClientes();
-                if (clienteActual) {
-                    if (formMovimientoCard) formMovimientoCard.style.display = 'block';
-                    renderizarMovimientos();
-                    renderizarCiclos();
-                    actualizarSaldo();
-                } else {
-                    if (formMovimientoCard) formMovimientoCard.style.display = 'none';
-                    if (movimientosBody) movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
-                    if (saldoClienteDiv) saldoClienteDiv.innerHTML = '💰 Saldo: $0';
-                    if (ciclosList) ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
-                }
-            } catch (e) {
-                console.error('Error cargando:', e);
-                alert('Error al cargar datos. Se reiniciará la aplicación.');
-                localStorage.clear();
-                location.reload();
-            }
-        }
-
-        function cargarMovimientosCliente() {
-            if (!clienteActual) return;
-            const movs = localStorage.getItem(`movimientos_${clienteActual}`);
-            movimientosActuales = movs ? JSON.parse(movs) : [];
-            const ciclos = localStorage.getItem(`ciclos_${clienteActual}`);
-            ciclosCerrados = ciclos ? JSON.parse(ciclos) : [];
-        }
-
-        function actualizarSelectorClientes() {
-            if (!clienteSelect) return;
-            const clienteAnterior = clienteSelect.value;
-            clienteSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>';
-            clientes.forEach(cliente => {
-                const option = document.createElement('option');
-                option.value = cliente;
-                option.textContent = cliente;
-                if (cliente === clienteAnterior) option.selected = true;
-                clienteSelect.appendChild(option);
-            });
-        }
-
-        function crearCliente() {
-            const nombre = prompt("Nombre del nuevo cliente:");
-            if (!nombre || nombre.trim() === '') return;
-            if (clientes.includes(nombre)) {
-                alert("Ya existe un cliente con ese nombre");
-                return;
-            }
-            clientes.push(nombre);
-            guardarTodo();
-            actualizarSelectorClientes();
-            alert(`Cliente "${nombre}" creado. Selecciónalo de la lista.`);
-        }
-
-        function calcularSaldo(movimientos) {
-            let saldo = 0;
-            const ordenados = [...movimientos].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
-            for (let m of ordenados) {
-                const valorTotal = m.cantidad * m.valorUnitario;
-                const esAbono = m.item && m.item.toLowerCase().includes('abono');
-                saldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
-            }
-            return saldo;
-        }
-
-        function actualizarSaldo() {
-            const saldo = calcularSaldo(movimientosActuales);
-            if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
-            if (btnCerrarCiclo) {
-                if (saldo === 0 && movimientosActuales.length > 0) btnCerrarCiclo.style.display = 'inline-block';
-                else btnCerrarCiclo.style.display = 'none';
-            }
-            return saldo;
-        }
-
-        function renderizarMovimientos() {
-            if (!movimientosBody) return;
-            if (!movimientosActuales.length) {
-                movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No hay movimientos. Agrega uno.</td></tr>';
-                actualizarSaldo();
-                return;
-            }
-            const ordenados = [...movimientosActuales].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
-            let saldo = 0;
-            let html = '';
-            for (let i = 0; i < ordenados.length; i++) {
-                const m = ordenados[i];
-                const valorTotal = m.cantidad * m.valorUnitario;
-                const esAbono = m.item && m.item.toLowerCase().includes('abono');
-                const nuevoSaldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
-                const rowClass = esAbono ? 'abono-row' : '';
-                html += `<tr class="${rowClass}">
-                    <td>${formatearFecha(m.fechaISO)}</td>
-                    <td>${escapeHtml(m.item)}</td>
-                    <td>${m.cantidad}</td>
-                    <td>${formatoMoneda(m.valorUnitario)}</td>
-                    <td>${formatoMoneda(valorTotal)}</td>
-                    <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
-                    <td><button class="btn-danger" onclick="eliminarMovimiento(${i})">🗑️ Eliminar</button></td>
-                </tr>`;
-                saldo = nuevoSaldo;
-            }
-            movimientosBody.innerHTML = html;
-            if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
-            if (btnCerrarCiclo) {
-                if (saldo === 0 && movimientosActuales.length > 0) btnCerrarCiclo.style.display = 'inline-block';
-                else btnCerrarCiclo.style.display = 'none';
-            }
-        }
-
-        window.eliminarMovimiento = function(indice) {
-            if (confirm("¿Eliminar este movimiento?")) {
-                movimientosActuales.splice(indice, 1);
-                guardarTodo();
-                renderizarMovimientos();
-            }
-        };
-
-        function agregarMovimiento() {
-            try {
-                if (!itemInput || !cantidadInput || !valorUnitarioInput || !fechaHoraInput) return;
-                let valorIngresado = valorUnitarioInput.value.trim();
-                let valorUnitario = agregarTresCeros(valorIngresado);
-                const itemTexto = itemInput.value.trim();
-                const cantidad = parseFloat(cantidadInput.value);
-                if (!fechaHoraInput.value) setFechaHoraActual();
-                if (!itemTexto) { alert("Escribe el nombre del item"); itemInput.focus(); return; }
-                if (isNaN(cantidad) || cantidad <= 0) { alert("La cantidad debe ser mayor a 0"); cantidadInput.focus(); return; }
-                if (valorUnitario <= 0) { alert("El valor unitario debe ser mayor a 0"); valorUnitarioInput.focus(); return; }
-                const data = {
-                    fechaISO: fechaHoraInput.value,
-                    item: itemTexto,
-                    cantidad: cantidad,
-                    valorUnitario: valorUnitario,
-                    esAbono: itemTexto.toLowerCase().includes('abono')
-                };
-                const itemLower = itemTexto.toLowerCase();
-                historialItems = historialItems.filter(i => i.toLowerCase() !== itemLower);
-                historialItems.unshift(itemTexto);
-                if (historialItems.length > 20) historialItems.pop();
-                movimientosActuales.push(data);
-                guardarTodo();
-                renderizarMovimientos();
-                itemInput.value = '';
-                cantidadInput.value = '1';
-                valorUnitarioInput.value = '';
-                setFechaHoraActual();
-                itemInput.focus();
-            } catch (error) {
-                console.error('Error en agregarMovimiento:', error);
-                alert('Error inesperado: ' + error.message);
-            }
-        }
-
-        function cerrarCiclo() {
-            const saldo = calcularSaldo(movimientosActuales);
-            if (saldo !== 0) { alert("⚠️ Solo puedes cerrar el ciclo cuando el saldo sea $0"); return; }
-            if (movimientosActuales.length === 0) { alert("No hay movimientos para archivar"); return; }
-            if (confirm("¿Cerrar ciclo? Los movimientos se archivarán y comenzarás un nuevo ciclo desde cero.")) {
-                const ciclo = {
-                    fechaCierre: new Date().toISOString(),
-                    saldoFinal: saldo,
-                    movimientos: [...movimientosActuales]
-                };
-                ciclosCerrados.unshift(ciclo);
-                movimientosActuales = [];
-                guardarTodo();
-                renderizarMovimientos();
-                renderizarCiclos();
-                alert("✅ Ciclo cerrado. Nuevo ciclo iniciado desde cero.");
-            }
-        }
-
-        function renderizarCiclos() {
-            if (!ciclosList) return;
-            if (!ciclosCerrados.length) {
-                ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
-                return;
-            }
-            let html = '';
-            for (let i = 0; i < ciclosCerrados.length; i++) {
-                const ciclo = ciclosCerrados[i];
-                const fechaCierre = new Date(ciclo.fechaCierre).toLocaleString();
-                const cicloNum = ciclosCerrados.length - i;
-                html += `
-                    <div class="ciclo-item">
-                        <div class="ciclo-header">
-                            <div>
-                                <strong>Ciclo #${cicloNum}</strong><br>
-                                <small>Cerrado: ${fechaCierre}</small><br>
-                                <small>Saldo final: ${formatoMoneda(ciclo.saldoFinal)}</small>
-                            </div>
-                            <button class="btn-outline" style="padding:5px 10px;" onclick="toggleCiclo(${i})">Ver movimientos</button>
-                        </div>
-                        <div id="cicloMovimientos${i}" class="ciclo-movimientos">
-                            ${generarTablaCiclo(ciclo.movimientos)}
-                        </div>
-                    </div>
-                `;
-            }
-            ciclosList.innerHTML = html;
-        }
-
-        function generarTablaCiclo(movimientosCiclo) {
-            let saldo = 0;
-            let html = '<div class="table-wrapper" style="margin-top:10px;"><table style="width:100%;"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th></tr></thead><tbody>';
-            const ordenados = [...movimientosCiclo].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
-            for (let m of ordenados) {
-                const valorTotal = m.cantidad * m.valorUnitario;
-                const esAbono = m.item && m.item.toLowerCase().includes('abono');
-                const nuevoSaldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
-                const rowClass = esAbono ? 'abono-row' : '';
-                html += `<tr class="${rowClass}">
-                    <td>${formatearFecha(m.fechaISO)}</td>
-                    <td>${escapeHtml(m.item)}</td>
-                    <td>${m.cantidad}</td>
-                    <td>${formatoMoneda(m.valorUnitario)}</td>
-                    <td>${formatoMoneda(valorTotal)}</td>
-                    <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
-                </tr>`;
-                saldo = nuevoSaldo;
-            }
-            html += '</tbody></table></div>';
-            return html;
-        }
-
-        window.toggleCiclo = function(index) {
-            const el = document.getElementById(`cicloMovimientos${index}`);
-            if (el) el.classList.toggle('visible');
-        };
+        clienteSelect = document.getElementById('clienteSelect');
+        btnNuevoCliente = document.getElementById('btnNuevoCliente');
+        btnResetearTodo = document.getElementById('btnResetearTodo');
+        btnCerrarCiclo = document.getElementById('btnCerrarCiclo');
+        btnGenerarReporte = document.getElementById('btnGenerarReporte');
+        formMovimientoCard = document.getElementById('formMovimientoCard');
+        saldoClienteDiv = document.getElementById('saldoCliente');
+        movimientosBody = document.getElementById('movimientosBody');
+        movimientoForm = document.getElementById('movimientoForm');
+        fechaHoraInput = document.getElementById('fechaHora');
+        itemInput = document.getElementById('item');
+        cantidadInput = document.getElementById('cantidad');
+        valorUnitarioInput = document.getElementById('valorUnitario');
+        autocompleteList = document.getElementById('autocompleteList');
+        ciclosList = document.getElementById('ciclosList');
 
         if (btnNuevoCliente) btnNuevoCliente.onclick = crearCliente;
         if (btnResetearTodo) btnResetearTodo.onclick = () => {
-            if (confirm("⚠️ ¿Estás seguro de borrar todos los clientes y movimientos locales?")) {
-                localStorage.clear();
-                location.reload();
+            if (confirm("⚠️ ¿Estás seguro de vaciar todo el archivo en la nube?")) {
+                appData = { clientes: [], clienteActual: null, historialItems: [], detalles: {} };
+                subirADrive();
+                actualizarInterfazCompleta();
             }
         };
         if (btnCerrarCiclo) btnCerrarCiclo.onclick = cerrarCiclo;
@@ -875,20 +515,9 @@
 
         if (clienteSelect) {
             clienteSelect.onchange = (e) => {
-                clienteActual = e.target.value;
-                if (clienteActual) {
-                    if (formMovimientoCard) formMovimientoCard.style.display = 'block';
-                    cargarMovimientosCliente();
-                    renderizarMovimientos();
-                    renderizarCiclos();
-                    actualizarSaldo();
-                } else {
-                    if (formMovimientoCard) formMovimientoCard.style.display = 'none';
-                    movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
-                    saldoClienteDiv.innerHTML = '💰 Saldo: $0';
-                    if (ciclosList) ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
-                }
-                localStorage.setItem('clienteActual', clienteActual || '');
+                appData.clienteActual = e.target.value;
+                actualizarInterfazCompleta();
+                subirADrive();
             };
         }
 
@@ -906,7 +535,7 @@
                     if (autocompleteList) autocompleteList.style.display = 'none';
                     return;
                 }
-                currentSuggestions = historialItems.filter(i => i.toLowerCase().includes(val));
+                currentSuggestions = (appData.historialItems || []).filter(i => i.toLowerCase().includes(val));
                 if (currentSuggestions.length > 0 && autocompleteList) {
                     let html = '';
                     currentSuggestions.forEach((s, idx) => {
@@ -938,25 +567,305 @@
             };
         }
 
-        window.seleccionarSugerencia = function(val) {
-            if (itemInput) itemInput.value = val;
-            if (autocompleteList) autocompleteList.style.display = 'none';
-            currentSelectedIndex = -1;
-            if (cantidadInput) cantidadInput.focus();
-        };
-
-        function actualizarSeleccionAutocomplete() {
-            if (!autocompleteList) return;
-            const items = autocompleteList.getElementsByClassName('autocomplete-item');
-            for (let i = 0; i < items.length; i++) {
-                if (i === currentSelectedIndex) items[i].classList.add('selected');
-                else items[i].classList.remove('selected');
-            }
-        }
-
         setFechaHoraActual();
-        cargarTodo();
     });
+
+    function actualizarInterfazCompleta() {
+        actualizarSelectorClientes();
+        const clienteActual = appData.clienteActual;
+        if (clienteActual && appData.clientes.includes(clienteActual)) {
+            if (formMovimientoCard) formMovimientoCard.style.display = 'block';
+            renderizarMovimientos();
+            renderizarCiclos();
+            actualizarSaldo();
+        } else {
+            appData.clienteActual = null;
+            if (formMovimientoCard) formMovimientoCard.style.display = 'none';
+            if (movimientosBody) movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
+            if (saldoClienteDiv) saldoClienteDiv.innerHTML = '💰 Saldo: $0';
+            if (ciclosList) ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
+        }
+    }
+
+    function setFechaHoraActual() {
+        if (!fechaHoraInput) return;
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        fechaHoraInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    function formatoMoneda(valor) {
+        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valor);
+    }
+
+    function formatearFecha(fechaISO) {
+        if (!fechaISO) return '';
+        let [fecha, hora] = fechaISO.split('T');
+        let [year, month, day] = fecha.split('-');
+        return `${day}/${month}/${year} ${hora?.substring(0,5) || '00:00'}`;
+    }
+
+    function agregarTresCeros(valor) {
+        if (!valor || valor === '') return 0;
+        let limpio = valor.toString().replace(/\./g, '').replace(/,/g, '').trim();
+        let num = parseFloat(limpio);
+        if (isNaN(num)) return 0;
+        return num * 1000;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&';
+            if (m === '<') return '<';
+            if (m === '>') return '>';
+            return m;
+        });
+    }
+
+    function actualizarSelectorClientes() {
+        if (!clienteSelect) return;
+        const clienteAnterior = appData.clienteActual;
+        clienteSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>';
+        (appData.clientes || []).forEach(cliente => {
+            const option = document.createElement('option');
+            option.value = cliente;
+            option.textContent = cliente;
+            if (cliente === clienteAnterior) option.selected = true;
+            clienteSelect.appendChild(option);
+        });
+    }
+
+    function crearCliente() {
+        const nombre = prompt("Nombre del nuevo cliente:");
+        if (!nombre || nombre.trim() === '') return;
+        if (appData.clientes.includes(nombre)) {
+            alert("Ya existe un cliente con ese nombre");
+            return;
+        }
+        appData.clientes.push(nombre);
+        appData.clienteActual = nombre;
+        subirADrive();
+        actualizarInterfazCompleta();
+        alert(`Cliente "${nombre}" creado en la nube.`);
+    }
+
+    function calcularSaldo(movimientos) {
+        let saldo = 0;
+        const ordenados = [...movimientos].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
+        for (let m of ordenados) {
+            const valorTotal = m.cantidad * m.valorUnitario;
+            const esAbono = m.item && m.item.toLowerCase().includes('abono');
+            saldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
+        }
+        return saldo;
+    }
+
+    function actualizarSaldo() {
+        const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
+        const saldo = calcularSaldo(movimientosActuales);
+        if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
+        if (btnCerrarCiclo) {
+            if (saldo === 0 && movimientosActuales.length > 0) btnCerrarCiclo.style.display = 'inline-block';
+            else btnCerrarCiclo.style.display = 'none';
+        }
+        return saldo;
+    }
+
+    function renderizarMovimientos() {
+        if (!movimientosBody) return;
+        const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
+        if (!movimientosActuales.length) {
+            movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No hay movimientos. Agrega uno.</td></tr>';
+            actualizarSaldo();
+            return;
+        }
+        const ordenados = [...movimientosActuales].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
+        let saldo = 0;
+        let html = '';
+        for (let i = 0; i < ordenados.length; i++) {
+            const m = ordenados[i];
+            const valorTotal = m.cantidad * m.valorUnitario;
+            const esAbono = m.item && m.item.toLowerCase().includes('abono');
+            const nuevoSaldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
+            const rowClass = esAbono ? 'abono-row' : '';
+            html += `<tr class="${rowClass}">
+                <td>${formatearFecha(m.fechaISO)}</td>
+                <td>${escapeHtml(m.item)}</td>
+                <td>${m.cantidad}</td>
+                <td>${formatoMoneda(m.valorUnitario)}</td>
+                <td>${formatoMoneda(valorTotal)}</td>
+                <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
+                <td><button class="btn-danger" onclick="eliminarMovimiento(${i})">🗑️ Eliminar</button></td>
+            </tr>`;
+            saldo = nuevoSaldo;
+        }
+        movimientosBody.innerHTML = html;
+        if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
+        if (btnCerrarCiclo) {
+            if (saldo === 0 && movimientosActuales.length > 0) btnCerrarCiclo.style.display = 'inline-block';
+            else btnCerrarCiclo.style.display = 'none';
+        }
+    }
+
+    window.eliminarMovimiento = function(indice) {
+        if (confirm("¿Eliminar este movimiento?")) {
+            const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
+            movimientosActuales.splice(indice, 1);
+            subirADrive();
+            renderizarMovimientos();
+        }
+    };
+
+    function agregarMovimiento() {
+        try {
+            if (!itemInput || !cantidadInput || !valorUnitarioInput || !fechaHoraInput) return;
+            let valorIngresado = valorUnitarioInput.value.trim();
+            let valorUnitario = agregarTresCeros(valorIngresado);
+            const itemTexto = itemInput.value.trim();
+            const cantidad = parseFloat(cantidadInput.value);
+            if (!fechaHoraInput.value) setFechaHoraActual();
+            if (!itemTexto) { alert("Escribe el nombre del item"); itemInput.focus(); return; }
+            if (isNaN(cantidad) || cantidad <= 0) { alert("La cantidad debe ser mayor a 0"); cantidadInput.focus(); return; }
+            if (valorUnitario <= 0) { alert("El valor unitario debe ser mayor a 0"); valorUnitarioInput.focus(); return; }
+            
+            const data = {
+                fechaISO: fechaHoraInput.value,
+                item: itemTexto,
+                cantidad: cantidad,
+                valorUnitario: valorUnitario,
+                esAbono: itemTexto.toLowerCase().includes('abono')
+            };
+
+            if (!appData.detalles[`movimientos_${appData.clienteActual}`]) {
+                appData.detalles[`movimientos_${appData.clienteActual}`] = [];
+            }
+
+            appData.historialItems = (appData.historialItems || []).filter(i => i.toLowerCase() !== itemTexto.toLowerCase());
+            appData.historialItems.unshift(itemTexto);
+            if (appData.historialItems.length > 20) appData.historialItems.pop();
+
+            appData.detalles[`movimientos_${appData.clienteActual}`].push(data);
+            
+            subirADrive();
+            renderizarMovimientos();
+
+            itemInput.value = '';
+            cantidadInput.value = '1';
+            valorUnitarioInput.value = '';
+            setFechaHoraActual();
+            itemInput.focus();
+        } catch (error) {
+            console.error('Error en agregarMovimiento:', error);
+            alert('Error inesperado: ' + error.message);
+        }
+    }
+
+    function cerrarCiclo() {
+        const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
+        const saldo = calcularSaldo(movimientosActuales);
+        if (saldo !== 0) { alert("⚠️ Solo puedes cerrar el ciclo cuando el saldo sea $0"); return; }
+        if (movimientosActuales.length === 0) { alert("No hay movimientos para archivar"); return; }
+        
+        if (confirm("¿Cerrar ciclo? Los movimientos se archivarán en la nube.")) {
+            const ciclo = {
+                fechaCierre: new Date().toISOString(),
+                saldoFinal: saldo,
+                movimientos: [...movimientosActuales]
+            };
+
+            if (!appData.detalles[`ciclos_${appData.clienteActual}`]) {
+                appData.detalles[`ciclos_${appData.clienteActual}`] = [];
+            }
+
+            appData.detalles[`ciclos_${appData.clienteActual}`].unshift(ciclo);
+            appData.detalles[`movimientos_${appData.clienteActual}`] = [];
+            
+            subirADrive();
+            renderizarMovimientos();
+            renderizarCiclos();
+            alert("✅ Ciclo cerrado y respaldado en la nube.");
+        }
+    }
+
+    function renderizarCiclos() {
+        if (!ciclosList) return;
+        const ciclosCerrados = appData.detalles[`ciclos_${appData.clienteActual}`] || [];
+        if (!ciclosCerrados.length) {
+            ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
+            return;
+        }
+        let html = '';
+        for (let i = 0; i < ciclosCerrados.length; i++) {
+            const ciclo = ciclosCerrados[i];
+            const fechaCierre = new Date(ciclo.fechaCierre).toLocaleString();
+            const cicloNum = ciclosCerrados.length - i;
+            html += `
+                <div class="ciclo-item">
+                    <div class="ciclo-header">
+                        <div>
+                            <strong>Ciclo #${cicloNum}</strong><br>
+                            <small>Cerrado: ${fechaCierre}</small><br>
+                            <small>Saldo final: ${formatoMoneda(ciclo.saldoFinal)}</small>
+                        </div>
+                        <button class="btn-outline" style="padding:5px 10px;" onclick="toggleCiclo(${i})">Ver movimientos</button>
+                    </div>
+                    <div id="cicloMovimientos${i}" class="ciclo-movimientos">
+                        ${generarTablaCiclo(ciclo.movimientos)}
+                    </div>
+                </div>
+            `;
+        }
+        ciclosList.innerHTML = html;
+    }
+
+    function generarTablaCiclo(movimientosCiclo) {
+        let saldo = 0;
+        let html = '<div class="table-wrapper" style="margin-top:10px;"><table style="width:100%;"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th></tr></thead><tbody>';
+        const ordenados = [...movimientosCiclo].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
+        for (let m of ordenados) {
+            const valorTotal = m.cantidad * m.valorUnitario;
+            const esAbono = m.item && m.item.toLowerCase().includes('abono');
+            const nuevoSaldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
+            const rowClass = esAbono ? 'abono-row' : '';
+            html += `<tr class="${rowClass}">
+                <td>${formatearFecha(m.fechaISO)}</td>
+                <td>${escapeHtml(m.item)}</td>
+                <td>${m.cantidad}</td>
+                <td>${formatoMoneda(m.valorUnitario)}</td>
+                <td>${formatoMoneda(valorTotal)}</td>
+                <td><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
+            </tr>`;
+            saldo = nuevoSaldo;
+        }
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    window.toggleCiclo = function(index) {
+        const el = document.getElementById(`cicloMovimientos${index}`);
+        if (el) el.classList.toggle('visible');
+    };
+
+    window.seleccionarSugerencia = function(val) {
+        if (itemInput) itemInput.value = val;
+        if (autocompleteList) autocompleteList.style.display = 'none';
+        currentSelectedIndex = -1;
+        if (cantidadInput) cantidadInput.focus();
+    };
+
+    function actualizarSeleccionAutocomplete() {
+        if (!autocompleteList) return;
+        const items = autocompleteList.getElementsByClassName('autocomplete-item');
+        for (let i = 0; i < items.length; i++) {
+            if (i === currentSelectedIndex) items[i].classList.add('selected');
+            else items[i].classList.remove('selected');
+        }
+    }
 </script>
 </body>
 </html>
