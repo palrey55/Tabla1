@@ -108,6 +108,8 @@
             background: #f59e0b;
             font-size: 1rem;
             padding: 12px 24px;
+            width: 100%;
+            text-align: center;
         }
 
         .btn-danger {
@@ -375,7 +377,7 @@
                         body: form
                     });
                 }
-                mostrarEstado("✅ ¡Guardado con éxito! El archivo .json ha sido actualizado.", "#d1fae5", "#065f46");
+                mostrarEstado("✅ ¡Guardado con éxito! El archivo .json ha sido actualizado en la nube.", "#d1fae5", "#065f46");
             } catch (err) {
                 console.error('Error al guardar en Drive:', err);
                 mostrarEstado("❌ Error al guardar en Drive. Revisa tu conexión.", "#fee2e2", "#991b1b");
@@ -421,14 +423,14 @@
 </head>
 <body>
 <div class="container" id="reporteContenedor">
-    <h1>📋 Gestión de Clientes</h1>
+    <h1>📋 Gestión de Clientes (Modo Nube)</h1>
     <div class="sub">Cargos suman | Abonos (escribe "abono" en el ítem) restan | Verde = Abono</div>
 
     <div id="statusBar" class="status-bar">Estado del sistema</div>
 
     <div class="clientes-section">
         <div class="clientes-header">
-            <!-- Fila principal de controles y guardado -->
+            <!-- Fila principal de controles -->
             <div class="toolbar-row">
                 <div class="selector-cliente">
                     <select id="clienteSelect"><option value="">-- Seleccionar cliente --</option></select>
@@ -440,8 +442,8 @@
                 </div>
             </div>
 
-            <!-- Fila destacada con el botón grande de Guardar -->
-            <div class="toolbar-row" style="border-top: 1px solid #e2e8f0; padding-top: 16px; justify-content: center;">
+            <!-- Botón Grande y Visible de Guardado Manual -->
+            <div class="toolbar-row" style="border-top: 1px solid #e2e8f0; padding-top: 16px;">
                 <button id="btnGuardarDrive" class="btn-save">💾 GUARDAR EN DRIVE (Sobrescribir .json)</button>
             </div>
         </div>
@@ -462,7 +464,7 @@
 
     <div class="table-wrapper"><table id="tablaMovimientos"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th><th>Eliminar</th></tr></thead><tbody id="movimientosBody"><tr><td colspan="7" style="text-align:center;">Conéctate a Drive para ver los registros</td></tr></tbody></table></div>
 
-    <footer>💡 Agrega tus registros con tranquilidad y presiona el botón grande "Guardar en Drive" para actualizar el archivo .json en tu nube.</footer>
+    <footer>💡 Agrega tus registros con tranquilidad y presiona el botón grande de "GUARDAR EN DRIVE" para actualizar el archivo .json en tu nube.</footer>
 </div>
 
 <script>
@@ -611,7 +613,7 @@
         appData.clientes.push(nombre);
         appData.clienteActual = nombre;
         actualizarInterfazCompleta();
-        mostrarEstado("⚠️ Cliente creado. Haz clic en 'GUARDAR EN DRIVE' para guardarlo.", "#fff3cd", "#856404");
+        mostrarEstado("⚠️ Cliente creado. Haz clic en 'GUARDAR EN DRIVE' para guardarlo en la nube.", "#fff3cd", "#856404");
     }
 
     function calcularSaldo(movimientos) {
