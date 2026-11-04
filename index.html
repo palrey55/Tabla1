@@ -297,6 +297,7 @@
         if (btnNuevoCliente) btnNuevoCliente.onclick = crearCliente;
         if (btnCerrarCiclo) btnCerrarCiclo.onclick = cerrarCiclo;
 
+        // ========== REPORTE CON DISEÑO DE FACTURA ==========
         if (btnGenerarReporte) {
             btnGenerarReporte.onclick = () => {
                 if (!appData.clienteActual) {
@@ -304,23 +305,23 @@
                     return;
                 }
                 
-                // 1. Crear un contenedor temporal (oculto) para la factura
+                // 1. Crear el contenedor temporal (oculto)
                 const facturaDiv = document.createElement('div');
                 facturaDiv.style.position = 'fixed';
                 facturaDiv.style.top = '-9999px';
                 facturaDiv.style.left = '-9999px';
-                facturaDiv.style.width = '650px';
+                facturaDiv.style.width = '800px';
                 facturaDiv.style.padding = '30px';
-                facturaDiv.style.backgroundColor = 'white';
-                facturaDiv.style.fontFamily = 'system-ui, sans-serif';
+                facturaDiv.style.backgroundColor = '#f8fafc';
+                facturaDiv.style.borderRadius = '24px';
+                facturaDiv.style.fontFamily = 'system-ui, -apple-system, sans-serif';
                 facturaDiv.style.color = '#1e293b';
 
-                // 2. Obtener los datos actuales
                 const movimientos = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
                 const saldo = calcularSaldo(movimientos);
                 
-                let tablaHtml = '<table style="width:100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;">';
-                tablaHtml += '<thead><tr style="background: #f1f5f9; text-align: left;"><th style="padding: 10px; border-bottom: 2px solid #cbd5e1;">Fecha</th><th style="padding: 10px; border-bottom: 2px solid #cbd5e1;">Item</th><th style="padding: 10px; border-bottom: 2px solid #cbd5e1;">Cant.</th><th style="padding: 10px; border-bottom: 2px solid #cbd5e1;">Valor</th><th style="padding: 10px; border-bottom: 2px solid #cbd5e1;">Saldo</th></tr></thead><tbody>';
+                let tablaHtml = '<table style="width:100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">';
+                tablaHtml += '<thead><tr style="background: #f1f5f9; text-align: left;"><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">Fecha</th><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">Item</th><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; text-align:center;">Cant</th><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; text-align:right;">ValorUnit.</th><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; text-align:right;">Total</th><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; text-align:right;">Saldo</th></tr></thead><tbody>';
                 
                 let saldoTemp = 0;
                 const ordenados = [...movimientos].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
@@ -331,35 +332,34 @@
                     const colorFila = esAbono ? 'background-color: #d1fae5;' : '';
                     
                     tablaHtml += `<tr style="${colorFila}">
-                        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${formatearFecha(m.fechaISO)}</td>
-                        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${m.item}</td>
-                        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${m.cantidad}</td>
-                        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${formatoMoneda(total)}</td>
-                        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;"><strong>${formatoMoneda(saldoTemp)}</strong></td>
+                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">${formatearFecha(m.fechaISO)}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">${m.item}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align:center;">${m.cantidad}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align:right;">${formatoMoneda(m.valorUnitario)}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align:right;">${formatoMoneda(total)}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align:right; font-weight: bold;">${formatoMoneda(saldoTemp)}</td>
                     </tr>`;
                 }
                 tablaHtml += '</tbody></table>';
 
-                // 3. Armar el diseño de la factura
                 facturaDiv.innerHTML = `
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <h2 style="margin: 0; color: #0f172a;">Reporte de Cuenta</h2>
-                        <p style="margin: 5px 0; color: #64748b;">Generado el: ${new Date().toLocaleString()}</p>
+                    <div style="margin-bottom: 20px;">
+                        <h1 style="margin: 0; color: #0f172a; font-size: 24px;">${appData.clienteActual}</h1>
+                        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Generado: ${new Date().toLocaleString()}</p>
                     </div>
-                    <div style="margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
-                        <h3 style="margin: 0; font-size: 18px;">Cliente: <span style="color: #2563eb;">${appData.clienteActual}</span></h3>
+                    
+                    <div style="margin-bottom: 20px; padding: 15px 20px; background: #e6f0ff; border-radius: 20px; text-align: right;">
+                        <h2 style="margin: 0; color: #0f172a; font-size: 20px;">💰 Saldo: ${formatoMoneda(saldo)}</h2>
                     </div>
+                    
                     ${tablaHtml}
-                    <div style="margin-top: 30px; text-align: right; padding: 20px; background: #e0f2fe; border-radius: 10px;">
-                        <h3 style="margin: 0; color: #0369a1;">SALDO ACTUAL: ${formatoMoneda(saldo)}</h3>
-                    </div>
-                    <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px;">Documento generado automáticamente</p>
+                    
+                    <p style="text-align: center; color: #94a3b8; font-size: 11px; margin-top: 20px;">Documento generado automáticamente</p>
                 `;
                 
                 document.body.appendChild(facturaDiv);
 
-                // 4. Convertir a imagen y forzar la descarga
-                html2canvas(facturaDiv, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+                html2canvas(facturaDiv, { scale: 2, backgroundColor: '#f8fafc' }).then(canvas => {
                     const base64Image = canvas.toDataURL("image/png");
                     
                     const enlace = document.createElement('a');
