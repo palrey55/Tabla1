@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Permissions-Policy" content="unload=*">
     <title>Finanzas - Gestión de Clientes</title>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <!-- Ya no necesitamos html2canvas -->
     <style>
         * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
-        body { background: #f0f2f5; padding: 20px; }
+        body { background: #f0f2f5; padding: 20px; margin: 0; }
         .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 28px; padding: 24px 20px 32px 20px; }
         h1 { font-size: 1.8rem; margin-bottom: 8px; color: #1e293b; }
         .sub { color: #475569; border-left: 4px solid #3b82f6; padding-left: 14px; margin-bottom: 24px; }
@@ -297,87 +296,140 @@
         if (btnNuevoCliente) btnNuevoCliente.onclick = crearCliente;
         if (btnCerrarCiclo) btnCerrarCiclo.onclick = cerrarCiclo;
 
-        // ========== REPORTE CON DISEÑO DE FACTURA ==========
+        // ========== GENERACIÓN DE FACTURA CON CANVAS NATIVO ==========
         if (btnGenerarReporte) {
             btnGenerarReporte.onclick = () => {
                 if (!appData.clienteActual) {
                     alert("Por favor, selecciona un cliente primero para generar su reporte.");
                     return;
                 }
-                
-                // 1. Crear el contenedor temporal (oculto)
-                const facturaDiv = document.createElement('div');
-                facturaDiv.style.position = 'fixed';
-                facturaDiv.style.top = '-9999px';
-                facturaDiv.style.left = '-9999px';
-                facturaDiv.style.width = '800px';
-                facturaDiv.style.padding = '30px';
-                facturaDiv.style.backgroundColor = '#f8fafc';
-                facturaDiv.style.borderRadius = '24px';
-                facturaDiv.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-                facturaDiv.style.color = '#1e293b';
 
                 const movimientos = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
-                const saldo = calcularSaldo(movimientos);
-                
-                let tablaHtml = '<table style="width:100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">';
-                tablaHtml += '<thead><tr style="background: #f1f5f9; text-align: left;"><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">Fecha</th><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">Item</th><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; text-align:center;">Cant</th><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; text-align:right;">ValorUnit.</th><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; text-align:right;">Total</th><th style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; text-align:right;">Saldo</th></tr></thead><tbody>';
-                
-                let saldoTemp = 0;
                 const ordenados = [...movimientos].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
+                const saldoFinal = calcularSaldo(movimientos);
+
+                // Configuración del lienzo
+                const filaAlto = 35;
+                const cabeceraAlto = 180;
+                const altoTotal = cabeceraAlto + (ordenados.length * filaAlto) + 80;
+                const anchoTotal = 800;
+
+                // Crear canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = anchoTotal;
+                canvas.height = altoTotal;
+                const ctx = canvas.getContext('2d');
+
+                // Fondo general
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillRect(0, 0, anchoTotal, altoTotal);
+
+                // --- CABECERA ---
+                // Título (Nombre Cliente)
+                ctx.fillStyle = '#1e293b';
+                ctx.font = 'bold 28px system-ui, sans-serif';
+                ctx.fillText(appData.clienteActual, 40, 60);
+
+                // Fecha generación
+                ctx.fillStyle = '#64748b';
+                ctx.font = '16px system-ui, sans-serif';
+                ctx.fillText('Generado: ' + new Date().toLocaleString(), 40, 90);
+
+                // Cuadro de Saldo
+                ctx.fillStyle = '#e6f0ff';
+                ctx.beginPath();
+                ctx.roundRect(40, 110, 720, 50, 10);
+                ctx.fill();
+                
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 22px system-ui, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText('💰 Saldo: ' + formatoMoneda(saldoFinal), 740, 143);
+
+                // --- TABLA ---
+                const startY = 190;
+                const colX = [40, 180, 480, 570, 670]; // Posiciones X de las columnas
+
+                // Cabecera Tabla
+                ctx.fillStyle = '#f1f5f9';
+                ctx.fillRect(40, startY - 30, 720, 30);
+                ctx.fillStyle = '#334155';
+                ctx.font = 'bold 14px system-ui, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText('Fecha', colX[0] + 10, startY - 10);
+                ctx.fillText('Item', colX[1] + 10, startY - 10);
+                ctx.textAlign = 'center';
+                ctx.fillText('Cant', colX[2] + 20, startY - 10);
+                ctx.textAlign = 'right';
+                ctx.fillText('Valor Unit.', colX[3] + 80, startY - 10);
+                ctx.fillText('Total', colX[4] + 100, startY - 10);
+                
+                let currentY = startY;
+                let saldoTemp = 0;
+
+                // Filas
                 for (let m of ordenados) {
                     const total = m.cantidad * m.valorUnitario;
                     const esAbono = m.item && m.item.toLowerCase().includes('abono');
                     saldoTemp = esAbono ? saldoTemp - total : saldoTemp + total;
-                    const colorFila = esAbono ? 'background-color: #d1fae5;' : '';
+
+                    // Fondo de fila
+                    if (esAbono) {
+                        ctx.fillStyle = '#d1fae5';
+                        ctx.fillRect(40, currentY, 720, filaAlto);
+                    }
+
+                    // Bordes
+                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.beginPath();
+                    ctx.moveTo(40, currentY + filaAlto);
+                    ctx.lineTo(760, currentY + filaAlto);
+                    ctx.stroke();
+
+                    // Textos
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = '14px system-ui, sans-serif';
                     
-                    tablaHtml += `<tr style="${colorFila}">
-                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">${formatearFecha(m.fechaISO)}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">${m.item}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align:center;">${m.cantidad}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align:right;">${formatoMoneda(m.valorUnitario)}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align:right;">${formatoMoneda(total)}</td>
-                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align:right; font-weight: bold;">${formatoMoneda(saldoTemp)}</td>
-                    </tr>`;
+                    ctx.textAlign = 'left';
+                    ctx.fillText(formatearFecha(m.fechaISO), colX[0] + 10, currentY + 22);
+                    
+                    // Truncar item si es muy largo
+                    let itemText = m.item;
+                    if (itemText.length > 30) itemText = itemText.substring(0, 30) + '...';
+                    ctx.fillText(itemText, colX[1] + 10, currentY + 22);
+
+                    ctx.textAlign = 'center';
+                    ctx.fillText(m.cantidad, colX[2] + 20, currentY + 22);
+
+                    ctx.textAlign = 'right';
+                    ctx.fillText(formatoMoneda(m.valorUnitario), colX[3] + 80, currentY + 22);
+                    ctx.fillText(formatoMoneda(total), colX[4] + 100, currentY + 22);
+                    
+                    ctx.font = 'bold 14px system-ui, sans-serif';
+                    ctx.fillText(formatoMoneda(saldoTemp), 740, currentY + 22);
+
+                    currentY += filaAlto;
                 }
-                tablaHtml += '</tbody></table>';
 
-                facturaDiv.innerHTML = `
-                    <div style="margin-bottom: 20px;">
-                        <h1 style="margin: 0; color: #0f172a; font-size: 24px;">${appData.clienteActual}</h1>
-                        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Generado: ${new Date().toLocaleString()}</p>
-                    </div>
-                    
-                    <div style="margin-bottom: 20px; padding: 15px 20px; background: #e6f0ff; border-radius: 20px; text-align: right;">
-                        <h2 style="margin: 0; color: #0f172a; font-size: 20px;">💰 Saldo: ${formatoMoneda(saldo)}</h2>
-                    </div>
-                    
-                    ${tablaHtml}
-                    
-                    <p style="text-align: center; color: #94a3b8; font-size: 11px; margin-top: 20px;">Documento generado automáticamente</p>
-                `;
-                
-                document.body.appendChild(facturaDiv);
+                // Pie de página
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '12px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Documento generado automáticamente', 400, altoTotal - 30);
 
-                html2canvas(facturaDiv, { scale: 2, backgroundColor: '#f8fafc' }).then(canvas => {
-                    const base64Image = canvas.toDataURL("image/png");
-                    
+                // --- DESCARGAR ---
+                try {
                     const enlace = document.createElement('a');
-                    enlace.href = base64Image;
-                    enlace.download = `Reporte_${appData.clienteActual}.png`;
-                    
+                    enlace.download = `Reporte_${appData.clienteActual.replace(/\s/g, '_')}.png`;
+                    enlace.href = canvas.toDataURL('image/png');
                     document.body.appendChild(enlace);
                     enlace.click();
                     document.body.removeChild(enlace);
-                    
-                    alert("✅ Reporte generado.\n\nBúscalo en tu carpeta de 'Descargas' con el nombre: Reporte_" + appData.clienteActual + ".png");
-                    
-                    document.body.removeChild(facturaDiv);
-                }).catch(err => {
-                    console.error('Error generando imagen:', err);
-                    alert('No se pudo generar la imagen del reporte.');
-                    document.body.removeChild(facturaDiv);
-                });
+                    alert("✅ Factura generada.\n\nBúscala en tu carpeta de 'Descargas'.");
+                } catch (e) {
+                    console.error(e);
+                    alert("Error al descargar la imagen.");
+                }
             };
         }
 
