@@ -275,6 +275,17 @@
             margin-top: 24px;
         }
 
+        /* Ocultar elementos molestos al generar la imagen tipo factura */
+        .capturando-reporte .clientes-header,
+        .capturando-reporte .form-card,
+        .capturando-reporte .status-bar,
+        .capturando-reporte .ciclos-section,
+        .capturando-reporte footer,
+        .capturando-reporte th:last-child,
+        .capturando-reporte td:last-child {
+            display: none !important;
+        }
+
         @media (max-width: 780px) {
             .form-grid {
                 flex-direction: column;
@@ -534,21 +545,33 @@
 
         if (btnGenerarReporte) {
             btnGenerarReporte.onclick = () => {
-                const elemento = document.getElementById('reporteContenedor');
-                const formCard = document.getElementById('formMovimientoCard');
-                if (formCard) formCard.style.display = 'none';
-                
-                html2canvas(elemento, { scale: 2 }).then(canvas => {
-                    if (formCard && appData.clienteActual) formCard.style.display = 'block';
-                    
-                    const enlace = document.createElement('a');
-                    enlace.download = `Reporte_${appData.clienteActual || 'Finanzas'}.png`;
-                    enlace.href = canvas.toDataURL('image/png');
-                    enlace.click();
-                }).catch(err => {
-                    console.error('Error generando imagen:', err);
-                    alert('No se pudo generar la imagen del reporte.');
-                });
+                if (!appData.clienteActual) {
+                    alert("Selecciona un cliente para generar el reporte.");
+                    return;
+                }
+
+                const contenedor = document.getElementById('reporteContenedor');
+                contenedor.classList.add('capturando-reporte');
+
+                setTimeout(() => {
+                    html2canvas(contenedor, { 
+                        scale: 2, 
+                        backgroundColor: '#ffffff' 
+                    }).then(canvas => {
+                        contenedor.classList.remove('capturando-reporte');
+
+                        const enlace = document.createElement('a');
+                        enlace.download = `Factura_${appData.clienteActual}_${new Date().toISOString().slice(0,10)}.png`;
+                        enlace.href = canvas.toDataURL('image/png');
+                        enlace.click();
+                        
+                        mostrarEstado("✅ Imagen de reporte generada correctamente.", "#d1fae5", "#065f46");
+                    }).catch(err => {
+                        contenedor.classList.remove('capturando-reporte');
+                        console.error('Error generando imagen:', err);
+                        alert('No se pudo generar la imagen del reporte.');
+                    });
+                }, 100);
             };
         }
 
