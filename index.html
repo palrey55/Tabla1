@@ -283,11 +283,28 @@
             margin-top: 24px;
         }
 
-        /* Forzar un ancho generoso y fijo al generar el reporte en Android */
+        /* DISEÑO ESPECIAL PARA LA IMAGEN DEL REPORTE (FACTURA LIMPIA) */
         .capturando-reporte {
-            width: 1100px !important;
-            min-width: 1100px !important;
-            padding: 40px !important;
+            width: 1050px !important;
+            min-width: 1050px !important;
+            padding: 50px !important;
+            background: #ffffff !important;
+        }
+
+        .capturando-reporte h1 {
+            font-size: 2.2rem !important;
+            color: #0f172a !important;
+        }
+
+        .capturando-reporte .sub {
+            font-size: 1rem !important;
+            margin-bottom: 30px !important;
+        }
+
+        .capturando-reporte .table-wrapper {
+            border: 2px solid #cbd5e1 !important;
+            border-radius: 16px !important;
+            overflow: visible !important;
         }
 
         .capturando-reporte table {
@@ -295,11 +312,28 @@
             table-layout: auto !important;
         }
 
-        .capturando-reporte th, .capturando-reporte td {
-            padding: 14px 18px !important;
-            font-size: 1rem !important;
+        .capturando-reporte th, 
+        .capturando-reporte td {
+            padding: 16px 20px !important;
+            font-size: 1.05rem !important;
+            white-space: nowrap !important;
         }
 
+        .capturando-reporte th {
+            background: #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+
+        .capturando-reporte .saldo-cliente {
+            font-size: 1.5rem !important;
+            padding: 20px 30px !important;
+            margin-top: 25px !important;
+            background: #eff6ff !important;
+            border: 2px solid #bfdbfe !important;
+            color: #1e40af !important;
+        }
+
+        /* Ocultar elementos de control en la foto */
         .capturando-reporte .clientes-header,
         .capturando-reporte .form-card,
         .capturando-reporte .status-bar,
@@ -908,38 +942,4 @@
 
     function generarTablaCiclo(movimientosCiclo) {
         let saldo = 0;
-        let html = '<div class="table-wrapper" style="margin-top:10px;"><table style="width:100%;"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th></tr></thead><tbody>';
-        const ordenados = [...movimientosCiclo].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
-        for (let m of ordenados) {
-            const valorTotal = m.cantidad * m.valorUnitario;
-            const esAbono = m.item && m.item.toLowerCase().includes('abono');
-            const nuevoSaldo = esAbono ? saldo - valorTotal : saldo + valorTotal;
-            const rowClass = esAbono ? 'abono-row' : '';
-            html += `<tr class="${rowClass}">
-                <td>${formatearFecha(m.fechaISO)}</td>
-                <td>${escapeHtml(m.item)}</td>
-                <td style="text-align:center;">${m.cantidad}</td>
-                <td style="text-align:right;">${formatoMoneda(m.valorUnitario)}</td>
-                <td style="text-align:right;">${formatoMoneda(valorTotal)}</td>
-                <td style="text-align:right;"><strong>${formatoMoneda(nuevoSaldo)}</strong></td>
-            </tr>`;
-            saldo = nuevoSaldo;
-        }
-        html += '</tbody></table></div>';
-        return html;
-    }
-
-    window.toggleCiclo = function(index) {
-        const el = document.getElementById(`cicloMovimientos${index}`);
-        if (el) el.classList.toggle('visible');
-    };
-
-    window.seleccionarSugerencia = function(val) {
-        if (itemInput) itemInput.value = val;
-        if (autocompleteList) autocompleteList.style.display = 'none';
-        currentSelectedIndex = -1;
-        if (cantidadInput) cantidadInput.focus();
-    };
-</script>
-</body>
-</html>
+        let html = '<div class="table-wrapper" style="margin-top:10px;"><table style="
