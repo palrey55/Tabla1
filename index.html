@@ -3,51 +3,287 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Permissions-Policy" content="unload=*">
     <title>Finanzas - Gestión de Clientes</title>
-    <!-- Ya no necesitamos html2canvas -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
-        * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
-        body { background: #f0f2f5; padding: 20px; margin: 0; }
-        .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 28px; padding: 24px 20px 32px 20px; }
-        h1 { font-size: 1.8rem; margin-bottom: 8px; color: #1e293b; }
-        .sub { color: #475569; border-left: 4px solid #3b82f6; padding-left: 14px; margin-bottom: 24px; }
-        .clientes-section { background: #f8fafc; border-radius: 24px; padding: 20px; margin-bottom: 32px; border: 1px solid #e2e8f0; }
-        .clientes-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
-        .selector-cliente { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        select, input { padding: 10px 14px; border-radius: 16px; border: 1px solid #cbd5e1; font-size: 0.9rem; background: white; }
-        button { border: none; padding: 10px 18px; border-radius: 16px; font-weight: 600; color: white; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
-        button:hover { opacity: 0.9; }
-        .btn-outline { background: white; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 16px; }
-        .btn-outline:hover { background: #f1f5f9; }
-        .btn-drive { background: #4285F4; border-radius: 16px; }
-        .btn-save { background: #f59e0b; border-radius: 16px; }
-        .btn-cycle { background: #8b5cf6; border-radius: 16px; }
-        .btn-success { background: #10b981; border-radius: 16px; }
-        .btn-danger { background: #ef4444; border-radius: 16px; }
-        .button-group { display: flex; gap: 10px; flex-wrap: wrap; }
-        .form-card { background: #f8fafc; border-radius: 24px; padding: 20px; margin-bottom: 32px; border: 1px solid #e2e8f0; }
-        .form-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
-        .field { flex: 1 1 160px; min-width: 130px; position: relative; }
-        .field label { display: block; font-size: 0.75rem; font-weight: 600; color: #334155; margin-bottom: 6px; }
-        .field input { width: 100%; }
-        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #cbd5e1; border-radius: 16px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
-        .autocomplete-item { padding: 10px 14px; cursor: pointer; }
-        .autocomplete-item:hover { background: #f1f5f9; }
-        .autocomplete-item.selected { background: #dbeafe; }
-        .table-wrapper { overflow-x: auto; border-radius: 20px; border: 1px solid #e2e8f0; margin-bottom: 30px; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        th { background: #f1f5f9; padding: 12px; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #eef2ff; }
-        .saldo-cliente { background: #e6f0ff; padding: 16px 20px; border-radius: 28px; margin: 15px 0 0 0; text-align: right; font-weight: 700; font-size: 1.2rem; }
-        .abono-row { background-color: #d1fae5; }
-        .ciclos-section { background: #f8fafc; border-radius: 24px; padding: 15px; border: 1px solid #e2e8f0; margin-top: 10px; }
-        .ciclo-item { background: white; border-radius: 16px; padding: 10px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
-        .ciclo-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .ciclo-movimientos { display: none; margin-top: 15px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
-        .ciclo-movimientos.visible { display: block; }
-        .status-bar { background: #fff3cd; color: #856404; padding: 12px 16px; border-radius: 16px; margin-bottom: 15px; font-size: 0.9rem; display: none; text-align: center; font-weight: 600; }
-        footer { font-size: 0.7rem; text-align: center; color: #62748c; margin-top: 24px; }
-        @media (max-width: 780px) { .form-grid { flex-direction: column; } th, td { font-size: 0.75rem; padding: 6px; } }
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 28px;
+            padding: 24px 20px 32px 20px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            color: #1e293b;
+        }
+
+        .sub {
+            color: #475569;
+            border-left: 4px solid #3b82f6;
+            padding-left: 14px;
+            margin-bottom: 24px;
+        }
+
+        .clientes-section {
+            background: #f8fafc;
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 32px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .clientes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .selector-cliente {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        select, input {
+            padding: 10px 14px;
+            border-radius: 16px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.9rem;
+            background: white;
+        }
+
+        button {
+            border: none;
+            padding: 10px 18px;
+            border-radius: 16px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.9rem;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .btn-outline {
+            background: white;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+            border-radius: 16px;
+        }
+        .btn-outline:hover {
+            background: #f1f5f9;
+        }
+
+        .btn-drive {
+            background: #4285F4;
+            border-radius: 16px;
+        }
+
+        .btn-save {
+            background: #f59e0b;
+            border-radius: 16px;
+        }
+
+        .btn-cycle {
+            background: #8b5cf6;
+            border-radius: 16px;
+        }
+
+        .btn-success {
+            background: #10b981;
+            border-radius: 16px;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            border-radius: 16px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .form-card {
+            background: #f8fafc;
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 32px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .form-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: flex-end;
+        }
+
+        .field {
+            flex: 1 1 160px;
+            min-width: 130px;
+            position: relative;
+        }
+
+        .field label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 6px;
+        }
+
+        .field input {
+            width: 100%;
+        }
+
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .autocomplete-item {
+            padding: 10px 14px;
+            cursor: pointer;
+        }
+        .autocomplete-item:hover {
+            background: #f1f5f9;
+        }
+        .autocomplete-item.selected {
+            background: #dbeafe;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        th {
+            background: #f1f5f9;
+            padding: 12px;
+            text-align: left;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #eef2ff;
+        }
+
+        .saldo-cliente {
+            background: #e6f0ff;
+            padding: 16px 20px;
+            border-radius: 28px;
+            margin: 15px 0 0 0;
+            text-align: right;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .abono-row {
+            background-color: #d1fae5;
+        }
+
+        .ciclos-section {
+            background: #f8fafc;
+            border-radius: 24px;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            margin-top: 10px;
+        }
+
+        .ciclo-item {
+            background: white;
+            border-radius: 16px;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 10px;
+        }
+
+        .ciclo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .ciclo-movimientos {
+            display: none;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .ciclo-movimientos.visible {
+            display: block;
+        }
+
+        .status-bar {
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 16px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        footer {
+            font-size: 0.7rem;
+            text-align: center;
+            color: #62748c;
+            margin-top: 24px;
+        }
+
+        @media (max-width: 780px) {
+            .form-grid {
+                flex-direction: column;
+            }
+            th, td {
+                font-size: 0.75rem;
+                padding: 6px;
+            }
+        }
     </style>
 
     <script>
@@ -231,7 +467,7 @@
             <div class="selector-cliente">
                 <select id="clienteSelect"><option value="">-- Seleccionar cliente --</option></select>
                 <button id="btnNuevoCliente" class="btn-outline">➕ Nuevo Cliente</button>
-                <button id="btnGuardarDrive" class="btn-save">💾 Guardar</button>
+                <button id="btnGuardarDrive" class="btn-outline" style="background:#f59e0b; color:white; border:none;">💾 Guardar</button>
             </div>
             <div class="button-group">
                 <button id="btnConectarDrive" class="btn-drive">☁️ Conectar Drive</button>
@@ -296,140 +532,23 @@
         if (btnNuevoCliente) btnNuevoCliente.onclick = crearCliente;
         if (btnCerrarCiclo) btnCerrarCiclo.onclick = cerrarCiclo;
 
-        // ========== GENERACIÓN DE FACTURA CON CANVAS NATIVO ==========
         if (btnGenerarReporte) {
             btnGenerarReporte.onclick = () => {
-                if (!appData.clienteActual) {
-                    alert("Por favor, selecciona un cliente primero para generar su reporte.");
-                    return;
-                }
-
-                const movimientos = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
-                const ordenados = [...movimientos].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
-                const saldoFinal = calcularSaldo(movimientos);
-
-                // Configuración del lienzo
-                const filaAlto = 35;
-                const cabeceraAlto = 180;
-                const altoTotal = cabeceraAlto + (ordenados.length * filaAlto) + 80;
-                const anchoTotal = 800;
-
-                // Crear canvas
-                const canvas = document.createElement('canvas');
-                canvas.width = anchoTotal;
-                canvas.height = altoTotal;
-                const ctx = canvas.getContext('2d');
-
-                // Fondo general
-                ctx.fillStyle = '#f8fafc';
-                ctx.fillRect(0, 0, anchoTotal, altoTotal);
-
-                // --- CABECERA ---
-                // Título (Nombre Cliente)
-                ctx.fillStyle = '#1e293b';
-                ctx.font = 'bold 28px system-ui, sans-serif';
-                ctx.fillText(appData.clienteActual, 40, 60);
-
-                // Fecha generación
-                ctx.fillStyle = '#64748b';
-                ctx.font = '16px system-ui, sans-serif';
-                ctx.fillText('Generado: ' + new Date().toLocaleString(), 40, 90);
-
-                // Cuadro de Saldo
-                ctx.fillStyle = '#e6f0ff';
-                ctx.beginPath();
-                ctx.roundRect(40, 110, 720, 50, 10);
-                ctx.fill();
+                const elemento = document.getElementById('reporteContenedor');
+                const formCard = document.getElementById('formMovimientoCard');
+                if (formCard) formCard.style.display = 'none';
                 
-                ctx.fillStyle = '#0f172a';
-                ctx.font = 'bold 22px system-ui, sans-serif';
-                ctx.textAlign = 'right';
-                ctx.fillText('💰 Saldo: ' + formatoMoneda(saldoFinal), 740, 143);
-
-                // --- TABLA ---
-                const startY = 190;
-                const colX = [40, 180, 480, 570, 670]; // Posiciones X de las columnas
-
-                // Cabecera Tabla
-                ctx.fillStyle = '#f1f5f9';
-                ctx.fillRect(40, startY - 30, 720, 30);
-                ctx.fillStyle = '#334155';
-                ctx.font = 'bold 14px system-ui, sans-serif';
-                ctx.textAlign = 'left';
-                ctx.fillText('Fecha', colX[0] + 10, startY - 10);
-                ctx.fillText('Item', colX[1] + 10, startY - 10);
-                ctx.textAlign = 'center';
-                ctx.fillText('Cant', colX[2] + 20, startY - 10);
-                ctx.textAlign = 'right';
-                ctx.fillText('Valor Unit.', colX[3] + 80, startY - 10);
-                ctx.fillText('Total', colX[4] + 100, startY - 10);
-                
-                let currentY = startY;
-                let saldoTemp = 0;
-
-                // Filas
-                for (let m of ordenados) {
-                    const total = m.cantidad * m.valorUnitario;
-                    const esAbono = m.item && m.item.toLowerCase().includes('abono');
-                    saldoTemp = esAbono ? saldoTemp - total : saldoTemp + total;
-
-                    // Fondo de fila
-                    if (esAbono) {
-                        ctx.fillStyle = '#d1fae5';
-                        ctx.fillRect(40, currentY, 720, filaAlto);
-                    }
-
-                    // Bordes
-                    ctx.strokeStyle = '#e2e8f0';
-                    ctx.beginPath();
-                    ctx.moveTo(40, currentY + filaAlto);
-                    ctx.lineTo(760, currentY + filaAlto);
-                    ctx.stroke();
-
-                    // Textos
-                    ctx.fillStyle = '#1e293b';
-                    ctx.font = '14px system-ui, sans-serif';
+                html2canvas(elemento, { scale: 2 }).then(canvas => {
+                    if (formCard && appData.clienteActual) formCard.style.display = 'block';
                     
-                    ctx.textAlign = 'left';
-                    ctx.fillText(formatearFecha(m.fechaISO), colX[0] + 10, currentY + 22);
-                    
-                    // Truncar item si es muy largo
-                    let itemText = m.item;
-                    if (itemText.length > 30) itemText = itemText.substring(0, 30) + '...';
-                    ctx.fillText(itemText, colX[1] + 10, currentY + 22);
-
-                    ctx.textAlign = 'center';
-                    ctx.fillText(m.cantidad, colX[2] + 20, currentY + 22);
-
-                    ctx.textAlign = 'right';
-                    ctx.fillText(formatoMoneda(m.valorUnitario), colX[3] + 80, currentY + 22);
-                    ctx.fillText(formatoMoneda(total), colX[4] + 100, currentY + 22);
-                    
-                    ctx.font = 'bold 14px system-ui, sans-serif';
-                    ctx.fillText(formatoMoneda(saldoTemp), 740, currentY + 22);
-
-                    currentY += filaAlto;
-                }
-
-                // Pie de página
-                ctx.fillStyle = '#94a3b8';
-                ctx.font = '12px system-ui, sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('Documento generado automáticamente', 400, altoTotal - 30);
-
-                // --- DESCARGAR ---
-                try {
                     const enlace = document.createElement('a');
-                    enlace.download = `Reporte_${appData.clienteActual.replace(/\s/g, '_')}.png`;
+                    enlace.download = `Reporte_${appData.clienteActual || 'Finanzas'}.png`;
                     enlace.href = canvas.toDataURL('image/png');
-                    document.body.appendChild(enlace);
                     enlace.click();
-                    document.body.removeChild(enlace);
-                    alert("✅ Factura generada.\n\nBúscala en tu carpeta de 'Descargas'.");
-                } catch (e) {
-                    console.error(e);
-                    alert("Error al descargar la imagen.");
-                }
+                }).catch(err => {
+                    console.error('Error generando imagen:', err);
+                    alert('No se pudo generar la imagen del reporte.');
+                });
             };
         }
 
@@ -521,9 +640,9 @@
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
+            if (m === '&') return '&';
+            if (m === '<') return '<';
+            if (m === '>') return '>';
             return m;
         });
     }
