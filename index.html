@@ -292,12 +292,13 @@
         }
 
         .capturando-reporte h1 {
-            font-size: 2.2rem !important;
+            font-size: 2.4rem !important;
             color: #0f172a !important;
+            margin-bottom: 15px !important;
         }
 
         .capturando-reporte .sub {
-            font-size: 1rem !important;
+            font-size: 1.1rem !important;
             margin-bottom: 30px !important;
         }
 
@@ -325,7 +326,7 @@
         }
 
         .capturando-reporte .saldo-cliente {
-            font-size: 1.5rem !important;
+            font-size: 1.6rem !important;
             padding: 20px 30px !important;
             margin-top: 25px !important;
             background: #eff6ff !important;
@@ -518,7 +519,7 @@
                     if (remoteData && remoteData.clientes) {
                         appData = remoteData;
                         if (!appData.detalles) appData.detalles = {};
-                        if (!appData.historialItems) appData.historialItems = {};
+                        if (!appData.historialItems) appData.historialItems = [];
                         if (appData.clienteActual && !appData.clientes.includes(appData.clienteActual)) {
                             appData.clienteActual = null;
                         }
@@ -646,6 +647,11 @@
                     return;
                 }
 
+                // Forzar de inmediato el nombre del cliente en el título para la foto
+                if (tituloReporte) {
+                    tituloReporte.textContent = `📋 Cuenta de Cobro / Reporte: ${appData.clienteActual}`;
+                }
+
                 const contenedor = document.getElementById('reporteContenedor');
                 contenedor.classList.add('capturando-reporte');
 
@@ -656,6 +662,11 @@
                         windowWidth: 1200 
                     }).then(canvas => {
                         contenedor.classList.remove('capturando-reporte');
+                        
+                        // Restaurar título normal en pantalla
+                        if (tituloReporte) {
+                            tituloReporte.textContent = `📋 Reporte: ${appData.clienteActual}`;
+                        }
 
                         const enlace = document.createElement('a');
                         enlace.download = `Reporte_${appData.clienteActual}_${new Date().toISOString().slice(0,10)}.png`;
@@ -665,6 +676,9 @@
                         mostrarEstado("✅ Imagen de reporte generada correctamente.", "#d1fae5", "#065f46");
                     }).catch(err => {
                         contenedor.classList.remove('capturando-reporte');
+                        if (tituloReporte) {
+                            tituloReporte.textContent = `📋 Reporte: ${appData.clienteActual}`;
+                        }
                         console.error('Error generando imagen:', err);
                         alert('No se pudo generar la imagen del reporte.');
                     });
