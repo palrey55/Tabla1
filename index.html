@@ -216,14 +216,18 @@
             border-bottom: 1px solid #eef2ff;
         }
 
+        /* Barra de saldo y cliente dividida */
         .saldo-cliente {
             background: #e6f0ff;
             padding: 16px 20px;
             border-radius: 28px;
             margin: 15px 0 0 0;
-            text-align: right;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             font-weight: 700;
             font-size: 1.2rem;
+            color: #1e293b;
         }
 
         .abono-row {
@@ -547,7 +551,7 @@
 </head>
 <body>
 <div class="container" id="reporteContenedor">
-    <h1 id="tituloReporte">📋 Gestión de Clientes</h1>
+    <h1>📋 Gestión de Clientes</h1>
     <div class="sub">Cargos suman | Abonos (escribe "abono" en el ítem) restan | Verde = Abono</div>
 
     <div id="statusBar" class="status-bar">Estado del sistema</div>
@@ -566,7 +570,10 @@
                 <button id="btnGenerarReporte" class="btn-success">📸 Reporte</button>
             </div>
         </div>
-        <div id="saldoCliente" class="saldo-cliente">💰 Saldo: $0</div>
+        <div id="saldoCliente" class="saldo-cliente">
+            <span id="labelClienteSaldo">👤 Seleccione un cliente</span>
+            <span id="valorSaldoText">💰 Saldo: $0</span>
+        </div>
     </div>
 
     <div class="form-card" id="formMovimientoCard" style="display: none;">
@@ -607,7 +614,7 @@
 
 <script>
     let clienteSelect, btnNuevoCliente, btnGuardarDrive, btnSincronizar, btnCerrarCiclo, btnGenerarReporte;
-    let formMovimientoCard, saldoClienteDiv, movimientosBody, movimientoForm, tituloReporte;
+    let formMovimientoCard, saldoClienteDiv, labelClienteSaldo, valorSaldoText, movimientosBody, movimientoForm;
     let fechaHoraInput, itemInput, cantidadInput, valorUnitarioInput, autocompleteList, ciclosList;
 
     let currentSuggestions = [];
@@ -625,9 +632,10 @@
         btnGenerarReporte = document.getElementById('btnGenerarReporte');
         formMovimientoCard = document.getElementById('formMovimientoCard');
         saldoClienteDiv = document.getElementById('saldoCliente');
+        labelClienteSaldo = document.getElementById('labelClienteSaldo');
+        valorSaldoText = document.getElementById('valorSaldoText');
         movimientosBody = document.getElementById('movimientosBody');
         movimientoForm = document.getElementById('movimientoForm');
-        tituloReporte = document.getElementById('tituloReporte');
         fechaHoraInput = document.getElementById('fechaHora');
         itemInput = document.getElementById('item');
         cantidadInput = document.getElementById('cantidad');
@@ -647,11 +655,6 @@
                     return;
                 }
 
-                // Forzar de inmediato el nombre del cliente en el título para la foto
-                if (tituloReporte) {
-                    tituloReporte.textContent = `📋 Cuenta de Cobro / Reporte: ${appData.clienteActual}`;
-                }
-
                 const contenedor = document.getElementById('reporteContenedor');
                 contenedor.classList.add('capturando-reporte');
 
@@ -662,11 +665,6 @@
                         windowWidth: 1200 
                     }).then(canvas => {
                         contenedor.classList.remove('capturando-reporte');
-                        
-                        // Restaurar título normal en pantalla
-                        if (tituloReporte) {
-                            tituloReporte.textContent = `📋 Reporte: ${appData.clienteActual}`;
-                        }
 
                         const enlace = document.createElement('a');
                         enlace.download = `Reporte_${appData.clienteActual}_${new Date().toISOString().slice(0,10)}.png`;
@@ -676,9 +674,6 @@
                         mostrarEstado("✅ Imagen de reporte generada correctamente.", "#d1fae5", "#065f46");
                     }).catch(err => {
                         contenedor.classList.remove('capturando-reporte');
-                        if (tituloReporte) {
-                            tituloReporte.textContent = `📋 Reporte: ${appData.clienteActual}`;
-                        }
                         console.error('Error generando imagen:', err);
                         alert('No se pudo generar la imagen del reporte.');
                     });
@@ -729,16 +724,16 @@
         const clienteActual = appData.clienteActual;
         if (clienteActual && appData.clientes.includes(clienteActual)) {
             if (formMovimientoCard) formMovimientoCard.style.display = 'block';
-            if (tituloReporte) tituloReporte.textContent = `📋 Reporte: ${clienteActual}`;
+            if (labelClienteSaldo) labelClienteSaldo.innerHTML = `👤 Cliente: <strong>${escapeHtml(clienteActual)}</strong>`;
             renderizarMovimientos();
             renderizarCiclos();
             actualizarSaldo();
         } else {
             appData.clienteActual = null;
             if (formMovimientoCard) formMovimientoCard.style.display = 'none';
-            if (tituloReporte) tituloReporte.textContent = `📋 Gestión de Clientes`;
+            if (labelClienteSaldo) labelClienteSaldo.innerHTML = `👤 Seleccione un cliente`;
             if (movimientosBody) movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
-            if (saldoClienteDiv) saldoClienteDiv.innerHTML = '💰 Saldo: $0';
+            if (valorSaldoText) valorSaldoText.innerHTML = '💰 Saldo: $0';
             if (ciclosList) ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
         }
     }
@@ -823,7 +818,7 @@
     function actualizarSaldo() {
         const movimientosActuales = appData.detalles[`movimientos_${appData.clienteActual}`] || [];
         const saldo = calcularSaldo(movimientosActuales);
-        if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
+        if (valorSaldoText) valorSaldoText.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
         if (btnCerrarCiclo) {
             if (saldo === 0 && movimientosActuales.length > 0) btnCerrarCiclo.style.display = 'inline-block';
             else btnCerrarCiclo.style.display = 'none';
@@ -860,7 +855,7 @@
             saldo = nuevoSaldo;
         }
         movimientosBody.innerHTML = html;
-        if (saldoClienteDiv) saldoClienteDiv.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
+        if (valorSaldoText) valorSaldoText.innerHTML = `💰 Saldo: ${formatoMoneda(saldo)}`;
         if (btnCerrarCiclo) {
             if (saldo === 0 && movimientosActuales.length > 0) btnCerrarCiclo.style.display = 'inline-block';
             else btnCerrarCiclo.style.display = 'none';
@@ -980,7 +975,7 @@
     function generarTablaCiclo(movimientosCiclo) {
         let saldo = 0;
         let html = '<div class="table-wrapper" style="margin-top:10px;"><table style="width:100%;"><thead><tr><th>Fecha</th><th>Item</th><th>Cant.</th><th>Valor Unit.</th><th>Total</th><th>Saldo</th></tr></thead><tbody>';
-        const ordenados = [...movimientosCiclo].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
+        const ordenados = [...movimientosCiclomovimientosCiclo].sort((a,b) => (a.fechaISO < b.fechaISO ? -1 : 1));
         for (let m of ordenados) {
             const valorTotal = m.cantidad * m.valorUnitario;
             const esAbono = m.item && m.item.toLowerCase().includes('abono');
