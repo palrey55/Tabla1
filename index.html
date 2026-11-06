@@ -573,9 +573,9 @@
                 <button id="btnGenerarReporte" class="btn-success">📸 Reporte</button>
             </div>
         </div>
-        <!-- Barra de Saldo con el Nombre del Cliente integrado a la izquierda -->
+        <!-- Barra de Saldo con el Nombre del Cliente integrado a la izquierda (sin la palabra "Cliente:") -->
         <div id="saldoCliente" class="saldo-cliente">
-            <span id="labelClienteSaldo">👤 Cliente: --</span>
+            <span id="labelClienteSaldo">👤 Seleccione un cliente</span>
             <span id="valorSaldoText">💰 Saldo: $0</span>
         </div>
     </div>
@@ -728,7 +728,7 @@
         const clienteActual = appData.clienteActual;
         if (clienteActual && appData.clientes.includes(clienteActual)) {
             if (formMovimientoCard) formMovimientoCard.style.display = 'block';
-            if (labelClienteSaldo) labelClienteSaldo.innerHTML = `👤 Cliente: <strong>${escapeHtml(clienteActual)}</strong>`;
+            if (labelClienteSaldo) labelClienteSaldo.innerHTML = `👤 <strong>${escapeHtml(clienteActual)}</strong>`;
             renderizarMovimientos();
             renderizarCiclos();
             actualizarSaldo();
