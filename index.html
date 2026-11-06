@@ -518,7 +518,7 @@
                     if (remoteData && remoteData.clientes) {
                         appData = remoteData;
                         if (!appData.detalles) appData.detalles = {};
-                        if (!appData.historialItems) appData.historialItems = [];
+                        if (!appData.historialItems) appData.historialItems = {};
                         if (appData.clienteActual && !appData.clientes.includes(appData.clienteActual)) {
                             appData.clienteActual = null;
                         }
@@ -546,7 +546,7 @@
 </head>
 <body>
 <div class="container" id="reporteContenedor">
-    <h1>📋 Gestión de Clientes (Modo Nube)</h1>
+    <h1 id="tituloReporte">📋 Gestión de Clientes</h1>
     <div class="sub">Cargos suman | Abonos (escribe "abono" en el ítem) restan | Verde = Abono</div>
 
     <div id="statusBar" class="status-bar">Estado del sistema</div>
@@ -606,7 +606,7 @@
 
 <script>
     let clienteSelect, btnNuevoCliente, btnGuardarDrive, btnSincronizar, btnCerrarCiclo, btnGenerarReporte;
-    let formMovimientoCard, saldoClienteDiv, movimientosBody, movimientoForm;
+    let formMovimientoCard, saldoClienteDiv, movimientosBody, movimientoForm, tituloReporte;
     let fechaHoraInput, itemInput, cantidadInput, valorUnitarioInput, autocompleteList, ciclosList;
 
     let currentSuggestions = [];
@@ -626,6 +626,7 @@
         saldoClienteDiv = document.getElementById('saldoCliente');
         movimientosBody = document.getElementById('movimientosBody');
         movimientoForm = document.getElementById('movimientoForm');
+        tituloReporte = document.getElementById('tituloReporte');
         fechaHoraInput = document.getElementById('fechaHora');
         itemInput = document.getElementById('item');
         cantidadInput = document.getElementById('cantidad');
@@ -714,12 +715,14 @@
         const clienteActual = appData.clienteActual;
         if (clienteActual && appData.clientes.includes(clienteActual)) {
             if (formMovimientoCard) formMovimientoCard.style.display = 'block';
+            if (tituloReporte) tituloReporte.textContent = `📋 Reporte: ${clienteActual}`;
             renderizarMovimientos();
             renderizarCiclos();
             actualizarSaldo();
         } else {
             appData.clienteActual = null;
             if (formMovimientoCard) formMovimientoCard.style.display = 'none';
+            if (tituloReporte) tituloReporte.textContent = `📋 Gestión de Clientes`;
             if (movimientosBody) movimientosBody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Selecciona un cliente</td></tr>';
             if (saldoClienteDiv) saldoClienteDiv.innerHTML = '💰 Saldo: $0';
             if (ciclosList) ciclosList.innerHTML = '<p style="color:#666;">No hay ciclos cerrados</p>';
